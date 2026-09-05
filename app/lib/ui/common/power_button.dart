@@ -114,7 +114,14 @@ class _PowerButtonState extends State<PowerButton>
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          FlagFill(widget.flagCode, diameter: flagD),
+                          AnimatedSwitcher(
+                            duration: WDur.normal,
+                            child: FlagFill(
+                              widget.flagCode,
+                              diameter: flagD,
+                              key: ValueKey(widget.flagCode),
+                            ),
+                          ),
                           DecoratedBox(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,

@@ -22,9 +22,21 @@ class LocationsScreen extends ConsumerStatefulWidget {
 class _LocationsScreenState extends ConsumerState<LocationsScreen> {
   String _query = '';
 
-  void _choose(Selection sel) {
-    ref.read(connectionControllerProvider).select(sel);
-    context.pop();
+  Future<void> _choose(Selection sel) async {
+    final controller = ref.read(connectionControllerProvider);
+    final ok = await controller.select(sel, ref.read(resolveSelectionProvider));
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('В этой локации нет доступных узлов')),
+      );
+      return;
+    }
+    final active = controller.activeNode;
+    if (active != null) {
+      await ref.read(settingsProvider.notifier).rememberLastGoodNode(active.id);
+    }
+    if (mounted) context.pop();
   }
 
   @override

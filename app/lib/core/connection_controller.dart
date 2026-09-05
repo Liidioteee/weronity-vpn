@@ -93,9 +93,36 @@ class ConnectionController extends ChangeNotifier {
       _status == ConnectionStatus.protected ||
       _status == ConnectionStatus.connecting;
 
-  void select(Selection selection) {
+  bool _switching = false;
+
+  /// True while a live location switch is settling (session stays "protected").
+  bool get isSwitching => _switching;
+
+  /// Change the selected location.
+  ///
+  /// If a session is active, the active node is hot-swapped to one in the new
+  /// location without dropping the connection (the stub for sing-box's
+  /// urltest/selector switch — see docs/architecture.md). Returns `false` when
+  /// the new location has no usable node; the current session is left intact.
+  Future<bool> select(
+    Selection selection,
+    Node? Function(Selection) resolve,
+  ) async {
     _selection = selection;
     notifyListeners();
+    if (!isActive) return true;
+
+    final next = resolve(selection);
+    if (next == null) return false;
+    if (next.id == _activeNode?.id) return true;
+
+    _switching = true;
+    notifyListeners();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    _activeNode = next;
+    _switching = false;
+    notifyListeners();
+    return true;
   }
 
   /// [resolve] maps the current [Selection] to a concrete node (lowest ping for
@@ -127,6 +154,7 @@ class ConnectionController extends ChangeNotifier {
   Future<void> disconnect() async {
     _tick?.cancel();
     _tick = null;
+    _switching = false;
     if (_status == ConnectionStatus.disconnected) return;
     _status = ConnectionStatus.disconnected;
     _activeNode = null;

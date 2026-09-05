@@ -110,21 +110,18 @@ final countryOptionsProvider = Provider<List<CountryOption>>(
 final connectionControllerProvider =
     ChangeNotifierProvider<ConnectionController>((ref) => ConnectionController());
 
-/// Resolves the active [Selection] against the current node list.
+/// Resolves a [Selection] to a concrete node against the current pool:
+/// an explicit node as-is; otherwise the lowest-ping recommended node in the
+/// chosen country (or globally for "⚡ Авто"). Session-priority for a previously
+/// used node is Phase 4.
 final resolveSelectionProvider = Provider<Node? Function(Selection)>((ref) {
   final nodes = ref.watch(nodesProvider);
-  final settings = ref.watch(settingsProvider);
   return (sel) {
     if (sel.node != null) return sel.node;
 
     Iterable<Node> pool = nodes.where((n) => n.health.alive);
     if (sel.countryCode != null) {
       pool = pool.where((n) => n.countryCode == sel.countryCode);
-    }
-    if (sel.isAuto && settings.autoConnectLastNode &&
-        settings.lastGoodNodeId != null) {
-      final last = pool.where((n) => n.id == settings.lastGoodNodeId);
-      if (last.isNotEmpty) return last.first;
     }
     final recommended = pool.where((n) => n.recommended);
     return pickLowestPing(recommended.isNotEmpty ? recommended : pool);

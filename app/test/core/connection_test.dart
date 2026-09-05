@@ -52,12 +52,40 @@ void main() {
     expect(c.lastError, isNotNull);
   });
 
-  test('selection is remembered', () {
+  test('selecting a location while idle just records it', () async {
     final c = ConnectionController();
     addTearDown(c.dispose);
-    c.select(const Selection.country('NL'));
+    final ok = await c.select(const Selection.country('NL'), (_) => null);
+    expect(ok, isTrue);
     expect(c.selection.countryCode, 'NL');
     expect(c.selection.isAuto, isFalse);
+  });
+
+  test('changing location while connected hot-swaps the active node', () async {
+    final c = ConnectionController();
+    addTearDown(c.dispose);
+    await c.connect((_) => _n('de', ping: 30));
+    expect(c.activeNode?.id, 'de');
+
+    final ok = await c.select(
+      const Selection.country('NL'),
+      (sel) => sel.countryCode == 'NL' ? _n('nl', ping: 40) : null,
+    );
+    expect(ok, isTrue);
+    expect(c.status, ConnectionStatus.protected); // session never dropped
+    expect(c.activeNode?.id, 'nl');
+    expect(c.selection.countryCode, 'NL');
+  });
+
+  test('switching to a location with no node keeps the current session', () async {
+    final c = ConnectionController();
+    addTearDown(c.dispose);
+    await c.connect((_) => _n('de', ping: 30));
+
+    final ok = await c.select(const Selection.country('ZZ'), (_) => null);
+    expect(ok, isFalse);
+    expect(c.status, ConnectionStatus.protected);
+    expect(c.activeNode?.id, 'de');
   });
 
   test('toggle flips between connect and disconnect', () async {
