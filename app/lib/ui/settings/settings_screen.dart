@@ -7,6 +7,7 @@ import '../../data/settings_repository.dart';
 import '../../state/providers.dart';
 import '../common/info_hint.dart';
 import '../common/widgets.dart';
+import '../shell/home_shell.dart' show PageBody;
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -18,7 +19,8 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки')),
-      body: ListView(
+      body: PageBody(
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.sm, WSpace.lg, WSpace.xxl),
         children: [
           _Group(
@@ -43,21 +45,22 @@ class SettingsScreen extends ConsumerWidget {
                     Text('Тема', style: Theme.of(context).textTheme.bodyLarge),
                     const SizedBox(height: WSpace.md),
                     SegmentedButton<ThemeMode>(
+                      showSelectedIcon: false,
                       segments: const [
                         ButtonSegment(
                           value: ThemeMode.dark,
                           label: Text('Тёмная'),
-                          icon: Icon(Icons.dark_mode_rounded),
+                          icon: Icon(Icons.dark_mode_rounded, size: 18),
                         ),
                         ButtonSegment(
                           value: ThemeMode.light,
                           label: Text('Светлая'),
-                          icon: Icon(Icons.light_mode_rounded),
+                          icon: Icon(Icons.light_mode_rounded, size: 18),
                         ),
                         ButtonSegment(
                           value: ThemeMode.system,
-                          label: Text('Системная'),
-                          icon: Icon(Icons.brightness_auto_rounded),
+                          label: Text('Авто'),
+                          icon: Icon(Icons.brightness_auto_rounded, size: 18),
                         ),
                       ],
                       selected: {s.themeMode},
@@ -170,6 +173,7 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
         ],
+        ),
       ),
     );
   }

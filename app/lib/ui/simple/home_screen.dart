@@ -6,10 +6,13 @@ import '../../app/hints.dart';
 import '../../app/theme/tokens.dart';
 import '../../core/connection_controller.dart';
 import '../../data/pool_repository.dart';
+import '../../domain/country_names.dart';
 import '../../state/providers.dart';
+import '../common/flag.dart';
 import '../common/format.dart';
 import '../common/power_button.dart';
 import '../common/widgets.dart';
+import '../shell/home_shell.dart' show PageBody;
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -56,13 +59,15 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: ListView(
+        child: PageBody(
+          child: ListView(
           padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.sm, WSpace.lg, WSpace.xxl),
           children: [
             const SizedBox(height: WSpace.xl),
             Center(
               child: PowerButton(
                 status: controller.status,
+                flagCode: controller.activeNode?.countryCode,
                 onTap: () => _toggle(ref),
               ),
             ),
@@ -79,6 +84,7 @@ class HomeScreen extends ConsumerWidget {
               error: (e, _) => _PoolFreshness.error('$e'),
             ),
           ],
+          ),
         ),
       ),
     );
@@ -109,11 +115,19 @@ class _StatusLine extends StatelessWidget {
         ),
         const SizedBox(height: WSpace.xs),
         if (s == ConnectionStatus.protected && controller.activeNode != null)
-          Text(
-            '${controller.activeNode!.displayFlag} '
-            '${controller.activeNode!.geo.country ?? controller.activeNode!.endpoint.host}'
-            ' · ${formatDuration(controller.traffic.elapsed)}',
-            style: Theme.of(context).textTheme.bodyMedium,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CountryLabel(
+                controller.activeNode!.countryCode,
+                flagSize: 18,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              Text(
+                ' · ${formatDuration(controller.traffic.elapsed)}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
           )
         else if (s == ConnectionStatus.error && controller.lastError != null)
           Text(
@@ -145,20 +159,20 @@ class _SelectionCard extends ConsumerWidget {
     if (sel.isAuto) {
       title = '⚡ Авто: самый быстрый';
       subtitle = '$nodeCount активных узлов';
-      leading = const Icon(Icons.bolt_rounded, color: WColors.violetBright);
+      leading = const Icon(Icons.bolt_rounded, color: WColors.violetBright, size: 26);
     } else if (sel.countryCode != null) {
       final c = countries.where((c) => c.code == sel.countryCode);
-      title = sel.countryCode!;
+      title = countryNameRu(sel.countryCode);
       subtitle = c.isEmpty
           ? 'нет узлов'
           : '${c.first.nodeCount} узлов · лучший ${formatPing(c.first.bestPingMs)}';
-      leading = Text(c.isEmpty ? '🏳️' : c.first.flag,
-          style: const TextStyle(fontSize: 24));
+      leading = FlagView(sel.countryCode, size: 26);
     } else {
       final n = sel.node!;
       title = n.tag.isEmpty ? n.endpoint.host : n.tag;
-      subtitle = '${n.protocol.toUpperCase()} · ${formatPing(n.health.pingMs)}';
-      leading = Text(n.displayFlag, style: const TextStyle(fontSize: 24));
+      subtitle = '${countryNameRu(n.countryCode)} · '
+          '${n.protocol.toUpperCase()} · ${formatPing(n.health.pingMs)}';
+      leading = FlagView(n.countryCode, size: 26);
     }
 
     return SectionCard(

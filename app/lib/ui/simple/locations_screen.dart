@@ -5,9 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme/tokens.dart';
 import '../../core/connection_controller.dart';
 import '../../data/node_filter.dart';
+import '../../domain/country_names.dart';
 import '../../state/providers.dart';
+import '../common/flag.dart';
 import '../common/format.dart';
 import '../common/widgets.dart';
+import '../shell/home_shell.dart' show PageBody;
 
 class LocationsScreen extends ConsumerStatefulWidget {
   const LocationsScreen({super.key});
@@ -31,7 +34,11 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
     final q = _query.trim().toLowerCase();
     final countries = q.isEmpty
         ? all
-        : all.where((c) => c.code.toLowerCase().contains(q)).toList();
+        : all
+            .where((c) =>
+                c.code.toLowerCase().contains(q) ||
+                countryNameRu(c.code).toLowerCase().contains(q))
+            .toList();
     final sel = controller.selection;
 
     return Scaffold(
@@ -44,7 +51,7 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
             child: TextField(
               onChanged: (v) => setState(() => _query = v),
               decoration: const InputDecoration(
-                hintText: 'Поиск страны (код ISO)',
+                hintText: 'Поиск страны',
                 prefixIcon: Icon(Icons.search_rounded),
                 isDense: true,
               ),
@@ -52,7 +59,8 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
           ),
         ),
       ),
-      body: ListView(
+      body: PageBody(
+        child: ListView(
         padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.sm, WSpace.lg, WSpace.xxl),
         children: [
           SectionCard(
@@ -101,6 +109,7 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
               ),
             ),
         ],
+        ),
       ),
     );
   }
@@ -126,13 +135,15 @@ class _CountryTile extends StatelessWidget {
         onTap: onTap,
         child: Row(
           children: [
-            Text(option.flag, style: const TextStyle(fontSize: 24)),
+            FlagView(option.code, size: 30),
             const SizedBox(width: WSpace.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(option.code,
+                  Text(countryNameRu(option.code),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium),
                   Text(
                     '${option.nodeCount} узлов'
