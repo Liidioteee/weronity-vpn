@@ -23,6 +23,7 @@ dist/
 build/
 collector/.cache/
 collector/out/
+collector/state/*.json
 
 # ── Node / Cloudflare (backend) ────────────────────────────────
 node_modules/
@@ -61,5 +62,6 @@ native/**/*.h.bak
 
 # ── Generated / downloaded data ────────────────────────────────
 *.mmdb
-geoip/
+collector/geoip/*
+!collector/geoip/README.md
 secrets.local.*

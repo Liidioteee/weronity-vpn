@@ -1,0 +1,97 @@
+name: collect-nodes
+
+# Scrape → decode → dedup → GeoIP → ping → classify → nodes_pool.json
+# Output + observation state are persisted on the orphan branch `pool-data`.
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+    inputs:
+      keep_dead:
+        description: "Publish unreachable nodes too (debug)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: collect-nodes
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    # Don't run the scheduled job on forks.
+    if: github.event_name == 'workflow_dispatch' || github.event.repository.fork == false
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: collector
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout pool-data branch
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: pool-data
+          path: pool-data
+
+      - name: Seed state from pool-data
+        run: |
+          mkdir -p state out
+          if [ -f ../pool-data/state/seen.json ]; then
+            cp ../pool-data/state/seen.json state/seen.json
+            echo "seeded seen.json ($(wc -c < state/seen.json) bytes)"
+          else
+            echo "no prior state — first run"
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: collector/pyproject.toml
+
+      - name: Install
+        run: pip install -e "."
+
+      - name: Fetch GeoIP databases
+        run: python scripts/fetch_geoip.py --dir geoip
+
+      - name: Collect
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python -m weronity_collector run \
+            --out out/nodes_pool.json \
+            --seen state/seen.json \
+            --source-run "${{ github.run_id }}" \
+            ${{ (github.event_name == 'workflow_dispatch' && inputs.keep_dead) && '--keep-dead' || '' }}
+          python -m weronity_collector validate out/nodes_pool.json
+          python -m weronity_collector stats out/nodes_pool.json
+
+      - name: Publish to pool-data branch
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          rm -rf pool-data/.git
+          mkdir -p pool-data/state
+          cp collector/out/nodes_pool.json pool-data/nodes_pool.json
+          cp collector/state/seen.json     pool-data/state/seen.json
+          cd pool-data
+          git init -q
+          git config user.name "weronity-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git checkout -q -b pool-data
+          git add -A
+          git commit -q -m "pool: run ${{ github.run_id }} ($(date -u +%FT%TZ))"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pool-data
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodes_pool
+          path: collector/out/nodes_pool.json
+          retention-days: 7

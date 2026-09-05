@@ -1,0 +1,13 @@
+# Curated sample of proxy URIs (synthetic credentials) covering every parser.
+# Mirrors the shapes seen in github.com/igareck/vpn-configs-for-russia.
+
+vless://f8738084-d3e4-457b-a15e-10d85709681f@example-reality.net:443?type=tcp&security=reality&pbk=ABCdefGHIjklMNOpqrstUVWxyz0123456789abcdEFG&sid=a1b2c3&fp=chrome&sni=www.apple.com&flow=xtls-rprx-vision#DE-Reality-01
+vless://884f23e9-caab-4775-9ed9-6a3a9cae677f@151.101.69.253:443?type=ws&security=tls&sni=cdn.example.com&host=cdn.example.com&path=%2Fws&alpn=h2#NL-WS-Fastly
+vless://74e2bf55-8495-49bc-99be-4a4d4ce2d2bf@grpc.example.org:8443?type=grpc&security=tls&sni=www.ibm.com&serviceName=grpcSvc#US-gRPC
+hysteria2://H7mP2xY9kJ4nQ8wR5tF6vB3z@vpn-au.example.world:443?insecure=1&sni=speedtest.example.ru&obfs=salamander&obfs-password=s3cr3t&up=10&down=50#AU-Hy2-Salamander
+hy2://df8d55f9fb51442d902abf8160dc051b@br.example.org:11100?security=tls&sni=www.bing.com#BR-Hy2
+trojan://Tr0j4nP4ss@trojan.example.com:443?type=ws&security=tls&sni=trojan.example.com&path=%2Ftj&host=trojan.example.com#FR-Trojan-WS
+vmess://eyJ2IjoiMiIsInBzIjoiSlAtVk1lc3MtV1MiLCJhZGQiOiJqcC5leGFtcGxlLm5ldCIsInBvcnQiOiI0NDMiLCJpZCI6ImJmMzYyZjM4LTU5ODMtNGY1OS1hMTQyLTAwMTEyMjMzNDQ1NSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiJqcC5leGFtcGxlLm5ldCIsInBhdGgiOiIvdm0iLCJ0bHMiOiJ0bHMiLCJzbmkiOiJqcC5leGFtcGxlLm5ldCJ9
+ss://YWVzLTI1Ni1nY206c3Nfc2VjcmV0X3Bhc3M@ss.example.net:8388#SG-SS-AEAD
+ss://2022-blake3-aes-128-gcm:c2hvcnRrZXkxMjM0NTY3OA==@ss2022.example.net:443#SE-SS-2022
+tuic://b7f1c2a9-d4e5-4a6b-8c7d-0e1f2a3b4c5d:tuic_password@tuic.example.net:2053?sni=tuic.example.net&congestion_control=bbr&udp_relay_mode=native&alpn=h3#FI-TUIC-v5

@@ -1,0 +1,50 @@
+# Minimal Clash.Meta config — only `proxies:` is read by the parser.
+port: 7890
+mode: rule
+proxies:
+  - name: DE-Reality-Clash
+    type: vless
+    server: reality.example.net
+    port: 443
+    uuid: f8738084-d3e4-457b-a15e-10d85709681f
+    network: tcp
+    tls: true
+    servername: www.apple.com
+    flow: xtls-rprx-vision
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: ABCdefGHIjklMNOpqrstUVWxyz0123456789abcdEFG
+      short-id: a1b2c3
+  - name: NL-Trojan-gRPC-Clash
+    type: trojan
+    server: trojan-grpc.example.net
+    port: 443
+    password: Tr0j4nP4ss
+    network: grpc
+    sni: trojan-grpc.example.net
+    skip-cert-verify: true
+    grpc-opts:
+      grpc-service-name: tjSvc
+  - name: SG-SS-Clash
+    type: ss
+    server: ss.example.net
+    port: 8388
+    cipher: aes-256-gcm
+    password: ss_secret_pass
+  - name: FI-Hy2-Clash
+    type: hysteria2
+    server: hy2.example.net
+    port: 443
+    password: H7mP2xY9kJ4nQ8wR5tF6vB3z
+    sni: www.bing.com
+    obfs: salamander
+    obfs-password: s3cr3t
+  - name: BadProxy-NoServer
+    type: vmess
+    port: 443
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies: [DE-Reality-Clash, SG-SS-Clash]
+rules:
+  - MATCH,PROXY

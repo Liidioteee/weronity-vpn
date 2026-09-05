@@ -1,0 +1,2 @@
+# Observation state (seen.json) is generated at runtime and persisted on the
+# `pool-data` branch by CI — not committed to main.
