@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestPing(t *testing.T) {
@@ -16,83 +17,89 @@ func TestPing(t *testing.T) {
 func TestStartRejectsInvalidJSON(t *testing.T) {
 	t.Cleanup(stopEngine)
 	if err := startEngine("not json"); err == nil {
-		t.Fatal("expected an error for invalid config json")
+		t.Fatal("expected an error for invalid start config")
 	}
 	if engineRunning() {
 		t.Fatal("engine must not be running after a rejected start")
 	}
 }
 
-func TestStartStopLifecycle(t *testing.T) {
+func TestStartRejectsHostileOutboundType(t *testing.T) {
+	t.Cleanup(stopEngine)
+	cfg := `{"outbound":{"type":"direct","server":"127.0.0.1","server_port":1},"self_test":false}`
+	if err := startEngine(cfg); err == nil {
+		t.Fatal("a 'direct' outbound must be rejected before the engine starts")
+	}
+	if engineRunning() {
+		t.Fatal("engine must not be running")
+	}
+}
+
+// Boots a real sing-box against an unroutable endpoint: creation + start must
+// succeed (dialing is lazy), stats must reflect it, stop must clean up.
+func TestEngineLifecycleWithRealSingBox(t *testing.T) {
 	t.Cleanup(stopEngine)
 
-	if err := startEngine(`{"log":{"level":"info"}}`); err != nil {
-		t.Fatalf("startEngine: %v", err)
+	var lines []string
+	var mu sync.Mutex
+	setEmitter(func(p string) { mu.Lock(); lines = append(lines, p); mu.Unlock() })
+	t.Cleanup(func() { setEmitter(nil) })
+
+	cfg := `{
+		"outbound": {
+			"type": "trojan",
+			"server": "192.0.2.1",
+			"server_port": 443,
+			"password": "test",
+			"tls": {"enabled": true, "server_name": "example.com"}
+		},
+		"self_test": false,
+		"log_level": "info"
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine with a valid trojan config: %v", err)
 	}
 	if !engineRunning() {
 		t.Fatal("engine should be running")
 	}
-	// Second start is a no-op, not an error.
-	if err := startEngine(`{}`); err != nil {
-		t.Fatalf("second startEngine: %v", err)
-	}
 
 	var snap map[string]any
 	if err := json.Unmarshal([]byte(statsJSON()), &snap); err != nil {
-		t.Fatalf("statsJSON not valid json: %v", err)
-	}
-	for _, k := range []string{"running", "rx_bytes", "tx_bytes", "uptime_ms"} {
-		if _, ok := snap[k]; !ok {
-			t.Errorf("stats snapshot missing %q", k)
-		}
+		t.Fatalf("statsJSON invalid: %v", err)
 	}
 	if snap["running"] != true {
-		t.Errorf("stats.running = %v, want true", snap["running"])
+		t.Errorf("stats.running = %v", snap["running"])
+	}
+	port, _ := snap["socks_port"].(float64)
+	if port < 1 || port > 65535 {
+		t.Errorf("stats.socks_port out of range: %v", snap["socks_port"])
 	}
 
 	stopEngine()
 	if engineRunning() {
 		t.Fatal("engine should be stopped")
 	}
-}
 
-func TestEmitterReceivesLogEvents(t *testing.T) {
-	t.Cleanup(func() {
-		setEmitter(nil)
-		stopEngine()
-	})
+	// second stop is a no-op
+	stopEngine()
 
-	var mu chanGuard
-	setEmitter(func(payload string) { mu.add(payload) })
-
-	if err := startEngine(`{}`); err != nil {
-		t.Fatalf("startEngine: %v", err)
-	}
-	got := mu.snapshot()
-	if len(got) == 0 || !strings.Contains(strings.Join(got, "\n"), `"kind":"log"`) {
-		t.Fatalf("expected a log event payload, got %v", got)
-	}
-	if !strings.Contains(strings.Join(got, "\n"), "engine started") {
-		t.Errorf("expected a 'engine started' line, got %v", got)
+	mu.Lock()
+	joined := strings.Join(lines, "\n")
+	mu.Unlock()
+	if !strings.Contains(joined, "sing-box up") || !strings.Contains(joined, "sing-box stopped") {
+		t.Errorf("expected up/stopped log lines, got:\n%s", joined)
 	}
 }
 
-// chanGuard is a tiny mutex-guarded slice for collecting async emitter payloads.
-type chanGuard struct {
-	mu   sync.Mutex
-	data []string
-}
-
-func (c *chanGuard) add(s string) {
-	c.mu.Lock()
-	c.data = append(c.data, s)
-	c.mu.Unlock()
-}
-
-func (c *chanGuard) snapshot() []string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	out := make([]string, len(c.data))
-	copy(out, c.data)
-	return out
+func TestDoubleStartIsNoop(t *testing.T) {
+	t.Cleanup(stopEngine)
+	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.2","server_port":443,"password":"x"},"self_test":false}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("first start: %v", err)
+	}
+	deadline := time.After(2 * time.Second)
+	_ = deadline
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("second start should be a silent no-op, got: %v", err)
+	}
 }

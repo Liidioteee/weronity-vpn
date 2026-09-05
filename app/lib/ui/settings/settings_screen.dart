@@ -8,6 +8,7 @@ import '../../data/settings_repository.dart';
 import '../../state/providers.dart';
 import '../common/info_hint.dart';
 import '../common/widgets.dart';
+import '../pro/core_probe_sheet.dart';
 import '../shell/home_shell.dart' show PageBody;
 
 class SettingsScreen extends ConsumerWidget {
@@ -176,6 +177,10 @@ class SettingsScreen extends ConsumerWidget {
                           : 'не подключено — используется заглушка (Фаза 3)',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    trailing: ok
+                        ? const Icon(Icons.play_circle_outline_rounded)
+                        : null,
+                    onTap: ok ? () => showCoreProbeSheet(context) : null,
                   );
                 },
               ),

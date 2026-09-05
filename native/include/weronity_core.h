@@ -21,19 +21,9 @@ extern const char *_GoStringPtr(_GoString_ s);
 /* Start of preamble from import "C" comments.  */
 
 
-#line 14 "bridge.go"
+#line 12 "bridge.go"
 
 #include <stdlib.h>
-
-// Event callback: the core hands ownership of `json` back to Go immediately
-// after the call returns, so the Dart side must copy anything it keeps.
-typedef void (*wrn_event_cb)(const char* json);
-
-static void wrn_invoke_event_cb(wrn_event_cb cb, const char* json) {
-    if (cb != NULL) {
-        cb(json);
-    }
-}
 
 #line 1 "cgo-generated-wrapper"
 
@@ -100,11 +90,11 @@ extern "C" {
 extern char* wrnCoreVersion(void);
 extern int wrnPing(int x);
 extern void wrnFree(char* p);
-extern void wrnSetEventCallback(wrn_event_cb cb);
 extern int wrnStart(char* configJSON);
 extern int wrnStop(void);
 extern int wrnIsRunning(void);
 extern char* wrnStatsJSON(void);
+extern char* wrnDrainEvents(void);
 
 #ifdef __cplusplus
 }

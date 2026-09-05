@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router.dart';
-import '../../app/theme/tokens.dart';
 import '../../state/providers.dart';
 
 /// Responsive navigation scaffold: a bottom bar in portrait / on narrow windows,
@@ -35,7 +34,9 @@ class HomeShell extends ConsumerWidget {
     void go(int i) =>
         shell.goBranch(i, initialLocation: i == shell.currentIndex);
 
-    final body = _BranchSwitcher(index: selectedIndex, child: shell);
+    // The cross-fade between branches happens in the router's
+    // navigatorContainerBuilder (_AnimatedBranchContainer) — `shell` renders it.
+    final Widget body = shell;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -79,42 +80,6 @@ class HomeShell extends ConsumerWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// Cross-fades + gently slides between navigation branches so switching tabs
-/// feels soft instead of an instant cut.
-class _BranchSwitcher extends StatelessWidget {
-  const _BranchSwitcher({required this.index, required this.child});
-
-  final int index;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: WDur.page,
-      switchInCurve: WCurves.enter,
-      switchOutCurve: WCurves.exit,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          ...previousChildren,
-          ?currentChild,
-        ],
-      ),
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.018),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        ),
-      ),
-      child: KeyedSubtree(key: ValueKey<int>(index), child: child),
     );
   }
 }

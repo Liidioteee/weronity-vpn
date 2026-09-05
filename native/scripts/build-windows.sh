@@ -41,8 +41,16 @@ echo "using $(gcc --version | head -1)"
 out_dir="$repo/native/build/windows"
 mkdir -p "$out_dir"
 
-echo "building weronity_core.dll ($mode) with $(go version)"
+# Tags: with_quic (hysteria2/tuic), with_utls (uTLS/REALITY). No with_clash_api —
+# the log writer is attached to the factory after box.New (see engine.go), so
+# sing-box builds neither a clash server nor a cache.db. Everything else
+# (tailscale, acme, dhcp, wireguard, naive, openvpn, gvisor…) is left out on
+# purpose — smaller binary, smaller attack surface.
+SB_TAGS="with_quic,with_utls"
+
+echo "building weronity_core.dll ($mode, tags=$SB_TAGS) with $(go version)"
 ( cd "$src" && go build -buildmode=c-shared \
+    -tags "$SB_TAGS" \
     -ldflags="-s -w" \
     -o "$out_dir/weronity_core.dll" . )
 

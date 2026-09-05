@@ -155,16 +155,20 @@ final connectionControllerProvider =
 final nativeCoreProvider = Provider<NativeCore>((ref) {
   final core = NativeCore.instance();
   final log = ref.read(logControllerProvider);
-  switch (core.state) {
-    case NativeCoreState.ok:
-      log.add('info', 'ffi', 'нативное ядро загружено: ${core.version()}');
-      log.add('debug', 'ffi', 'ffi smoke: ping(41) = ${core.ping(41)}');
-    case NativeCoreState.unavailable:
-      log.add('warn', 'ffi',
-          'нативное ядро не загрузилось (${core.loadError ?? "?"}) — заглушка');
-    case NativeCoreState.unsupported:
-      log.add('info', 'ffi', 'нативное ядро для этой платформы пока не собрано');
-  }
+  // Defer: a provider must not notify another provider during its own init.
+  Future.microtask(() {
+    switch (core.state) {
+      case NativeCoreState.ok:
+        log.add('info', 'ffi', 'нативное ядро загружено: ${core.version()}');
+        log.add('debug', 'ffi', 'ffi smoke: ping(41) = ${core.ping(41)}');
+      case NativeCoreState.unavailable:
+        log.add('warn', 'ffi',
+            'нативное ядро не загрузилось (${core.loadError ?? "?"}) — заглушка');
+      case NativeCoreState.unsupported:
+        log.add(
+            'info', 'ffi', 'нативное ядро для этой платформы пока не собрано');
+    }
+  });
   return core;
 });
 

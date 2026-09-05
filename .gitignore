@@ -65,3 +65,7 @@ native/**/*.h.bak
 collector/geoip/*
 !collector/geoip/README.md
 secrets.local.*
+
+# sing-box runtime cache (should never be created now, but just in case)
+cache.db
+*.db

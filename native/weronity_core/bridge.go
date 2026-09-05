@@ -2,35 +2,25 @@
 // (weronity_core.dll / libweronity_core.so) consumed by the Flutter client over
 // dart:ffi.
 //
-// Phase 3.0 (this file): the smallest possible surface that proves the whole
-// toolchain — cgo build, c-shared linkage, DLL/so loading from Dart, string and
-// callback marshalling. Phase 3.1 replaces the stub engine with a real sing-box
-// (libbox) engine; the exported C signatures are meant to stay stable.
+// The C-facing functions here are thin shims; the real logic lives in plain Go
+// (engine.go / config.go / events.go) so it stays unit-testable without cgo.
 //
-// The C-facing functions here are thin shims; the actual logic lives in plain
-// Go (engine.go) so it stays unit-testable without cgo.
+// String returns (wrnCoreVersion, wrnStatsJSON, wrnDrainEvents) transfer
+// ownership — the caller must release them with wrnFree.
 package main
 
 /*
 #include <stdlib.h>
-
-// Event callback: the core hands ownership of `json` back to Go immediately
-// after the call returns, so the Dart side must copy anything it keeps.
-typedef void (*wrn_event_cb)(const char* json);
-
-static void wrn_invoke_event_cb(wrn_event_cb cb, const char* json) {
-    if (cb != NULL) {
-        cb(json);
-    }
-}
 */
 import "C"
 
-import "unsafe"
+import (
+	"encoding/json"
+	"unsafe"
+)
 
 //export wrnCoreVersion
 func wrnCoreVersion() *C.char {
-	// Caller frees with wrnFree.
 	return C.CString(coreVersion)
 }
 
@@ -42,19 +32,6 @@ func wrnPing(x C.int) C.int {
 //export wrnFree
 func wrnFree(p *C.char) {
 	C.free(unsafe.Pointer(p))
-}
-
-//export wrnSetEventCallback
-func wrnSetEventCallback(cb C.wrn_event_cb) {
-	if cb == nil {
-		setEmitter(nil)
-		return
-	}
-	setEmitter(func(payload string) {
-		cs := C.CString(payload)
-		C.wrn_invoke_event_cb(cb, cs)
-		C.free(unsafe.Pointer(cs))
-	})
 }
 
 //export wrnStart
@@ -81,8 +58,35 @@ func wrnIsRunning() C.int {
 
 //export wrnStatsJSON
 func wrnStatsJSON() *C.char {
-	// Caller frees with wrnFree.
 	return C.CString(statsJSON())
+}
+
+// wrnDrainEvents returns a JSON array of event objects queued since the last
+// call, then clears the queue. The Dart side polls this while the engine runs.
+//
+//export wrnDrainEvents
+func wrnDrainEvents() *C.char {
+	events := drainEvents()
+	if len(events) == 0 {
+		return C.CString("[]")
+	}
+	// events are already-marshalled JSON objects; assemble the array by hand to
+	// avoid a re-encode.
+	buf := make([]byte, 0, 32*len(events))
+	buf = append(buf, '[')
+	for i, e := range events {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, e...)
+	}
+	buf = append(buf, ']')
+	// validate once in debug-ish fashion; on the off chance a payload was not
+	// valid JSON, fall back to an empty array rather than handing back garbage.
+	if !json.Valid(buf) {
+		return C.CString("[]")
+	}
+	return C.CString(string(buf))
 }
 
 func main() {}
