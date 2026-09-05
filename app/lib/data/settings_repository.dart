@@ -13,6 +13,26 @@ enum RoutingMode {
       };
 }
 
+/// Custom routing buckets edited in Pro mode; fed to the sing-box route config
+/// in Phase 4.
+enum RuleBucket {
+  direct,
+  proxy,
+  block;
+
+  String get label => switch (this) {
+        RuleBucket.direct => 'Напрямую',
+        RuleBucket.proxy => 'Через VPN',
+        RuleBucket.block => 'Блокировать',
+      };
+
+  String get hint => switch (this) {
+        RuleBucket.direct => 'Домены в обход туннеля',
+        RuleBucket.proxy => 'Домены всегда через туннель',
+        RuleBucket.block => 'Домены, которым отвечаем отказом',
+      };
+}
+
 /// Plain settings snapshot. Persisted key-by-key in a Hive box.
 @immutable
 class Settings {
@@ -25,6 +45,9 @@ class Settings {
     this.poolUrlOverride,
     this.preflightEndpoints = defaultPreflightEndpoints,
     this.lastGoodNodeId,
+    this.directRules = const [],
+    this.proxyRules = const [],
+    this.blockRules = const [],
   });
 
   final bool proMode;
@@ -35,6 +58,15 @@ class Settings {
   final String? poolUrlOverride;
   final List<String> preflightEndpoints;
   final String? lastGoodNodeId;
+  final List<String> directRules;
+  final List<String> proxyRules;
+  final List<String> blockRules;
+
+  List<String> rules(RuleBucket bucket) => switch (bucket) {
+        RuleBucket.direct => directRules,
+        RuleBucket.proxy => proxyRules,
+        RuleBucket.block => blockRules,
+      };
 
   static const defaultPreflightEndpoints = <String>[
     'https://www.google.com/generate_204',
@@ -53,6 +85,9 @@ class Settings {
     String? Function()? poolUrlOverride,
     List<String>? preflightEndpoints,
     String? Function()? lastGoodNodeId,
+    List<String>? directRules,
+    List<String>? proxyRules,
+    List<String>? blockRules,
   }) =>
       Settings(
         proMode: proMode ?? this.proMode,
@@ -66,13 +101,25 @@ class Settings {
         preflightEndpoints: preflightEndpoints ?? this.preflightEndpoints,
         lastGoodNodeId:
             lastGoodNodeId != null ? lastGoodNodeId() : this.lastGoodNodeId,
+        directRules: directRules ?? this.directRules,
+        proxyRules: proxyRules ?? this.proxyRules,
+        blockRules: blockRules ?? this.blockRules,
       );
+
+  Settings withRules(RuleBucket bucket, List<String> value) => switch (bucket) {
+        RuleBucket.direct => copyWith(directRules: value),
+        RuleBucket.proxy => copyWith(proxyRules: value),
+        RuleBucket.block => copyWith(blockRules: value),
+      };
 }
 
 class SettingsRepository {
   SettingsRepository(this._box);
 
   final Box<dynamic> _box;
+
+  List<String> _list(String key) =>
+      (_box.get(key) as List?)?.cast<String>() ?? const [];
 
   Settings load() => Settings(
         proMode: _box.get('proMode', defaultValue: false) as bool,
@@ -88,6 +135,9 @@ class SettingsRepository {
             (_box.get('preflightEndpoints') as List?)?.cast<String>() ??
                 Settings.defaultPreflightEndpoints,
         lastGoodNodeId: _box.get('lastGoodNodeId') as String?,
+        directRules: _list('directRules'),
+        proxyRules: _list('proxyRules'),
+        blockRules: _list('blockRules'),
       );
 
   Future<void> save(Settings s) async {
@@ -100,6 +150,9 @@ class SettingsRepository {
       'poolUrlOverride': s.poolUrlOverride,
       'preflightEndpoints': s.preflightEndpoints,
       'lastGoodNodeId': s.lastGoodNodeId,
+      'directRules': s.directRules,
+      'proxyRules': s.proxyRules,
+      'blockRules': s.blockRules,
     });
   }
 }

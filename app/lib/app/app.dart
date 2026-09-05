@@ -11,6 +11,7 @@ class WeronityApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(settingsProvider.select((s) => s.themeMode));
+    ref.watch(poolPollingProvider); // background pool refresh
     return MaterialApp.router(
       title: 'Weronity',
       debugShowCheckedModeBanner: false,

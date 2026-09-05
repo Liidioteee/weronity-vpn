@@ -244,7 +244,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               const SizedBox(height: WSpace.md),
               Text(
-                'Редактирование списка — в Pro-режиме (Фаза 2b).',
+                'Редактирование списка — во вкладке Pro → «Проверки».',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),

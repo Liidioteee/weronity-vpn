@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../ui/keys/keys_screen.dart';
+import '../ui/pro/pro_screen.dart';
 import '../ui/settings/settings_screen.dart';
 import '../ui/shell/home_shell.dart';
 import '../ui/simple/home_screen.dart';
@@ -43,16 +44,26 @@ final router = GoRouter(
             ),
           ],
         ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/pro',
+              builder: (context, state) => const ProScreen(),
+            ),
+          ],
+        ),
       ],
     ),
   ],
 );
 
-/// Tabs shown in the bottom navigation bar.
+/// Tabs shown in the bottom navigation bar. [pro] is only surfaced when the
+/// Pro-mode toggle is on (see `HomeShell`).
 enum AppTab {
   home(Icons.shield_outlined, Icons.shield_rounded, 'Главная', '/'),
   keys(Icons.vpn_key_outlined, Icons.vpn_key_rounded, 'Ключи', '/keys'),
-  settings(Icons.tune_outlined, Icons.tune_rounded, 'Настройки', '/settings');
+  settings(Icons.tune_outlined, Icons.tune_rounded, 'Настройки', '/settings'),
+  pro(Icons.auto_awesome_outlined, Icons.auto_awesome_rounded, 'Pro', '/pro');
 
   const AppTab(this.icon, this.activeIcon, this.label, this.location);
 

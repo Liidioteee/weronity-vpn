@@ -96,4 +96,74 @@ void main() {
     await c.toggle((_) => _n('a', ping: 10));
     expect(c.status, ConnectionStatus.disconnected);
   });
+
+  test('debugTick fills the traffic history; disconnect clears it', () async {
+    final c = ConnectionController();
+    addTearDown(c.dispose);
+    await c.connect((_) => _n('a', ping: 50));
+
+    expect(c.history, isEmpty);
+    for (var i = 0; i < 5; i++) {
+      c.debugTick();
+    }
+    expect(c.history, hasLength(5));
+    expect(c.history.last.pingMs, inInclusiveRange(35, 65)); // 50 ± 15
+    expect(c.traffic.downBytes, greaterThan(0));
+
+    await c.disconnect();
+    expect(c.history, isEmpty);
+  });
+
+  test('history is capped at historyCapacity', () async {
+    final c = ConnectionController();
+    addTearDown(c.dispose);
+    await c.connect((_) => _n('a', ping: 20));
+    for (var i = 0; i < ConnectionController.historyCapacity + 50; i++) {
+      c.debugTick();
+    }
+    expect(c.history, hasLength(ConnectionController.historyCapacity));
+  });
+
+  test('connect / disconnect emit core log lines through onLog', () async {
+    final logs = <String>[];
+    final c = ConnectionController(
+      onLog: (level, tag, message) => logs.add('$level/$tag: $message'),
+    );
+    addTearDown(c.dispose);
+
+    await c.connect((_) => _n('a', ping: 40));
+    expect(logs.where((l) => l.startsWith('info/core')), isNotEmpty);
+    expect(logs.any((l) => l.contains('соединение установлено')), isTrue);
+
+    await c.disconnect();
+    expect(logs.any((l) => l.contains('туннель закрыт')), isTrue);
+  });
+
+  test('a failed connect logs an error line', () async {
+    final logs = <String>[];
+    final c = ConnectionController(
+      onLog: (level, tag, message) => logs.add('$level/$tag'),
+    );
+    addTearDown(c.dispose);
+    await c.connect((_) => null);
+    expect(logs, contains('error/core'));
+  });
+
+  test('hot-swap logs route lines; a dead target logs a warning', () async {
+    final logs = <String>[];
+    final c = ConnectionController(
+      onLog: (level, tag, message) => logs.add('$level/$tag: $message'),
+    );
+    addTearDown(c.dispose);
+    await c.connect((_) => _n('de', ping: 30));
+
+    await c.select(
+      const Selection.country('NL'),
+      (sel) => sel.countryCode == 'NL' ? _n('nl', ping: 40) : null,
+    );
+    expect(logs.any((l) => l.contains('переключение завершено')), isTrue);
+
+    await c.select(const Selection.country('ZZ'), (_) => null);
+    expect(logs.any((l) => l.startsWith('warn/route')), isTrue);
+  });
 }

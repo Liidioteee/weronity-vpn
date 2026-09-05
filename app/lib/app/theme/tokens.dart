@@ -61,4 +61,14 @@ abstract final class WDur {
   static const normal = Duration(milliseconds: 260);
   static const slow = Duration(milliseconds: 480);
   static const pulse = Duration(milliseconds: 1800);
+
+  /// Cross-fade between navigation branches / page content.
+  static const page = Duration(milliseconds: 340);
+}
+
+/// Shared easing curves so motion feels consistent across the app.
+abstract final class WCurves {
+  static const enter = Curves.easeOutCubic;
+  static const exit = Curves.easeInCubic;
+  static const emphasized = Cubic(0.2, 0.0, 0.0, 1.0);
 }

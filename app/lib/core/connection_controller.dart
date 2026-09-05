@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
 import '../domain/node.dart';
+
+/// Sink for core log lines — `(level, tag, message)`. Kept as a bare function so
+/// the controller stays free of UI / Riverpod imports.
+typedef ConnectionLog = void Function(String level, String tag, String message);
 
 enum ConnectionStatus {
   disconnected,
@@ -44,6 +49,21 @@ class TrafficSample {
   );
 }
 
+/// One point in the rolling network-activity history (fed to the Pro graphs).
+class TrafficPoint {
+  const TrafficPoint({
+    required this.elapsed,
+    required this.downBps,
+    required this.upBps,
+    required this.pingMs,
+  });
+
+  final Duration elapsed;
+  final double downBps;
+  final double upBps;
+  final int pingMs;
+}
+
 /// Auto-selects the lowest-latency node when the user picks "⚡ Авто".
 class Selection {
   const Selection.auto()
@@ -64,20 +84,28 @@ class Selection {
 
 /// **Stub** connection controller for Phase 2.
 ///
-/// Drives the full UI state machine (disconnected → connecting → protected) and
-/// emits synthetic traffic, but performs no real tunnelling. Phase 3 replaces the
-/// body of [connect]/[disconnect] with the sing-box FFI bridge; the public
-/// surface is intended to stay the same.
+/// Drives the full UI state machine (disconnected → connecting → protected),
+/// emits synthetic traffic + a synthetic core-log stream, but performs no real
+/// tunnelling. Phase 3 replaces the body of [connect]/[disconnect]/[select] with
+/// the sing-box FFI bridge; the public surface is intended to stay the same.
 class ConnectionController extends ChangeNotifier {
-  ConnectionController();
+  ConnectionController({this.onLog});
+
+  /// Optional core-log sink; wired to the [LogController] in `providers.dart`.
+  final ConnectionLog? onLog;
+
+  /// Points kept for the Pro network graphs (~10 min at one sample/second).
+  static const historyCapacity = 600;
 
   ConnectionStatus _status = ConnectionStatus.disconnected;
   Selection _selection = const Selection.auto();
   Node? _activeNode;
   String? _lastError;
   TrafficSample _traffic = TrafficSample.zero;
+  final Queue<TrafficPoint> _history = Queue<TrafficPoint>();
 
   Timer? _tick;
+  int _tickCount = 0;
   DateTime? _connectedAt;
   int _up = 0;
   int _down = 0;
@@ -88,6 +116,7 @@ class ConnectionController extends ChangeNotifier {
   Node? get activeNode => _activeNode;
   String? get lastError => _lastError;
   TrafficSample get traffic => _traffic;
+  List<TrafficPoint> get history => List<TrafficPoint>.unmodifiable(_history);
   bool get isBusy => _status == ConnectionStatus.connecting;
   bool get isActive =>
       _status == ConnectionStatus.protected ||
@@ -97,6 +126,9 @@ class ConnectionController extends ChangeNotifier {
 
   /// True while a live location switch is settling (session stays "protected").
   bool get isSwitching => _switching;
+
+  void _log(String level, String tag, String message) =>
+      onLog?.call(level, tag, message);
 
   /// Change the selected location.
   ///
@@ -113,14 +145,19 @@ class ConnectionController extends ChangeNotifier {
     if (!isActive) return true;
 
     final next = resolve(selection);
-    if (next == null) return false;
+    if (next == null) {
+      _log('warn', 'route', 'в выбранной локации нет живых узлов — не переключаюсь');
+      return false;
+    }
     if (next.id == _activeNode?.id) return true;
 
     _switching = true;
+    _log('info', 'route', 'переключение на ${_name(next)}…');
     notifyListeners();
     await Future<void>.delayed(const Duration(milliseconds: 400));
     _activeNode = next;
     _switching = false;
+    _log('info', 'route', 'переключение завершено: ${_name(next)}');
     notifyListeners();
     return true;
   }
@@ -131,6 +168,7 @@ class ConnectionController extends ChangeNotifier {
     if (isActive) return;
     _lastError = null;
     _status = ConnectionStatus.connecting;
+    _log('info', 'core', 'запуск туннеля (заглушка Фазы 2)…');
     notifyListeners();
 
     await Future<void>.delayed(const Duration(milliseconds: 900));
@@ -138,6 +176,7 @@ class ConnectionController extends ChangeNotifier {
     if (node == null) {
       _status = ConnectionStatus.error;
       _lastError = 'Нет доступных узлов для выбранной локации';
+      _log('error', 'core', _lastError!);
       notifyListeners();
       return;
     }
@@ -147,6 +186,10 @@ class ConnectionController extends ChangeNotifier {
     _connectedAt = DateTime.now();
     _up = 0;
     _down = 0;
+    _tickCount = 0;
+    _history.clear();
+    _log('info', 'core', 'соединение установлено: ${_name(node)}');
+    _log('debug', 'tls', 'рукопожатие ok · sni=${node.classification.sni ?? '—'}');
     _startTicker();
     notifyListeners();
   }
@@ -160,6 +203,8 @@ class ConnectionController extends ChangeNotifier {
     _activeNode = null;
     _connectedAt = null;
     _traffic = TrafficSample.zero;
+    _history.clear();
+    _log('info', 'core', 'туннель закрыт');
     notifyListeners();
   }
 
@@ -168,22 +213,67 @@ class ConnectionController extends ChangeNotifier {
 
   void _startTicker() {
     _tick?.cancel();
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      // Synthetic traffic: idle-ish with occasional bursts.
-      final burst = _rng.nextDouble() < 0.25;
-      final down = (burst ? 400000 + _rng.nextInt(2500000) : 20000 + _rng.nextInt(180000));
-      final up = (burst ? 60000 + _rng.nextInt(300000) : 8000 + _rng.nextInt(40000));
-      _down += down;
-      _up += up;
-      _traffic = TrafficSample(
-        upBps: up.toDouble(),
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) => _emitSample());
+  }
+
+  /// Runs one synthetic-traffic step. Exposed for tests so they need not wait a
+  /// real second for the periodic timer.
+  @visibleForTesting
+  void debugTick() => _emitSample();
+
+  void _emitSample() {
+    _connectedAt ??= DateTime.now();
+    _tickCount++;
+
+    // Synthetic traffic: idle-ish with occasional bursts.
+    final burst = _rng.nextDouble() < 0.25;
+    final down =
+        burst ? 400000 + _rng.nextInt(2500000) : 20000 + _rng.nextInt(180000);
+    final up = burst ? 60000 + _rng.nextInt(300000) : 8000 + _rng.nextInt(40000);
+    _down += down;
+    _up += up;
+    final elapsed = DateTime.now().difference(_connectedAt!);
+    _traffic = TrafficSample(
+      upBps: up.toDouble(),
+      downBps: down.toDouble(),
+      upBytes: _up,
+      downBytes: _down,
+      elapsed: elapsed,
+    );
+
+    final basePing = _activeNode?.health.pingMs ?? 60;
+    final pingMs = max(1, basePing + _rng.nextInt(31) - 15);
+    _history.addLast(
+      TrafficPoint(
+        elapsed: elapsed,
         downBps: down.toDouble(),
-        upBytes: _up,
-        downBytes: _down,
-        elapsed: DateTime.now().difference(_connectedAt!),
+        upBps: up.toDouble(),
+        pingMs: pingMs,
+      ),
+    );
+    while (_history.length > historyCapacity) {
+      _history.removeFirst();
+    }
+
+    if (_tickCount % 30 == 0) {
+      _log('debug', 'core', 'keepalive ok · rtt ${pingMs}ms');
+    } else if (_tickCount % 12 == 0) {
+      _log(
+        'debug',
+        'net',
+        'rx ${_kb(_down)} · tx ${_kb(_up)}',
       );
-      notifyListeners();
-    });
+    }
+
+    notifyListeners();
+  }
+
+  static String _kb(int bytes) => '${(bytes / 1024).toStringAsFixed(0)} КБ';
+
+  String _name(Node n) {
+    final where = n.geo.countryName ?? n.countryCode;
+    final label = n.tag.isEmpty ? n.endpoint.host : n.tag;
+    return '$label · $where';
   }
 
   @override

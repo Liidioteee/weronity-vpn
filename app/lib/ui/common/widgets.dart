@@ -23,12 +23,111 @@ class SectionCard extends StatelessWidget {
       child: Padding(padding: padding, child: child),
     );
     if (onTap == null) return card;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(padding: padding, child: child),
+    return _PressScale(
+      onTap: onTap!,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(padding: padding, child: child),
+        ),
       ),
+    );
+  }
+}
+
+/// Gives a child a subtle spring-in/out scale while it is pressed. The [onTap]
+/// is still delivered by the wrapped [InkWell]; this only adds the squeeze.
+class _PressScale extends StatefulWidget {
+  const _PressScale({required this.child, required this.onTap});
+
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  State<_PressScale> createState() => _PressScaleState();
+}
+
+class _PressScaleState extends State<_PressScale> {
+  bool _down = false;
+
+  void _set(bool v) {
+    if (_down != v) setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => _set(true),
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1,
+        duration: WDur.fast,
+        curve: WCurves.emphasized,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Fades and slides its child up on first build. Use for list items / page
+/// content that should ease in rather than pop. [delay] staggers siblings.
+class FadeSlideIn extends StatefulWidget {
+  const FadeSlideIn({
+    required this.child,
+    this.delay = Duration.zero,
+    this.offset = 14,
+    super.key,
+  });
+
+  final Widget child;
+  final Duration delay;
+  final double offset;
+
+  @override
+  State<FadeSlideIn> createState() => _FadeSlideInState();
+}
+
+class _FadeSlideInState extends State<FadeSlideIn>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: WDur.page,
+  );
+  late final Animation<double> _t =
+      CurvedAnimation(parent: _c, curve: WCurves.enter);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.delay == Duration.zero) {
+      _c.forward();
+    } else {
+      Future<void>.delayed(widget.delay, () {
+        if (mounted) _c.forward();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _t,
+      builder: (context, child) => Opacity(
+        opacity: _t.value,
+        child: Transform.translate(
+          offset: Offset(0, widget.offset * (1 - _t.value)),
+          child: child,
+        ),
+      ),
+      child: widget.child,
     );
   }
 }

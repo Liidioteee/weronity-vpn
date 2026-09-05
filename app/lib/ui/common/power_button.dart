@@ -13,11 +13,14 @@ import 'flag.dart';
 /// * connecting   → amber pulsing ring
 /// * protected    → green glow; the ring is filled with the active country's
 ///   flag when known, otherwise a solid green disc
+/// * switching    → a thin accent arc sweeps around the ring while the active
+///   node is being hot-swapped
 class PowerButton extends StatefulWidget {
   const PowerButton({
     required this.status,
     required this.onTap,
     this.flagCode,
+    this.switching = false,
     this.size = 200,
     super.key,
   });
@@ -25,6 +28,7 @@ class PowerButton extends StatefulWidget {
   final ConnectionStatus status;
   final VoidCallback onTap;
   final String? flagCode;
+  final bool switching;
   final double size;
 
   @override
@@ -38,7 +42,8 @@ class _PowerButtonState extends State<PowerButton>
 
   bool get _wantsAnimation =>
       widget.status == ConnectionStatus.connecting ||
-      widget.status == ConnectionStatus.protected;
+      widget.status == ConnectionStatus.protected ||
+      widget.switching;
 
   @override
   void initState() {
@@ -88,72 +93,102 @@ class _PowerButtonState extends State<PowerButton>
         child: SizedBox(
           width: size,
           height: size,
-          child: AnimatedBuilder(
-            animation: _c,
-            builder: (context, _) {
-              final t = _c.value;
-              final connecting = widget.status == ConnectionStatus.connecting;
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  CustomPaint(
-                    size: Size.square(size),
-                    painter: _PowerPainter(
-                      accent: _accent,
-                      pulse: connecting ? t : 0,
-                      glow: protected
-                          ? (0.5 + 0.5 * math.sin(t * 2 * math.pi))
-                          : 0,
-                      filled: protected && !showFlag,
-                    ),
-                  ),
-                  if (showFlag)
-                    SizedBox(
-                      width: flagD,
-                      height: flagD,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          AnimatedSwitcher(
-                            duration: WDur.normal,
-                            child: FlagFill(
-                              widget.flagCode,
-                              diameter: flagD,
-                              key: ValueKey(widget.flagCode),
-                            ),
-                          ),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.05),
-                                  Colors.black.withValues(alpha: 0.45),
-                                ],
-                                stops: const [0.55, 1],
-                              ),
-                            ),
-                          ),
-                        ],
+          child: TweenAnimationBuilder<Color?>(
+            tween: ColorTween(end: _accent),
+            duration: WDur.slow,
+            curve: WCurves.enter,
+            builder: (context, tweenedAccent, _) {
+              final accent = tweenedAccent ?? _accent;
+              return AnimatedBuilder(
+                animation: _c,
+                builder: (context, _) {
+                  final t = _c.value;
+                  final connecting =
+                      widget.status == ConnectionStatus.connecting;
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CustomPaint(
+                        size: Size.square(size),
+                        painter: _PowerPainter(
+                          accent: accent,
+                          pulse: connecting ? t : 0,
+                          glow: protected
+                              ? (0.5 + 0.5 * math.sin(t * 2 * math.pi))
+                              : 0,
+                          sweep: widget.switching ? t : -1,
+                          filled: protected && !showFlag,
+                        ),
                       ),
-                    ),
-                  AnimatedSwitcher(
-                    duration: WDur.normal,
-                    child: Icon(
-                      protected
-                          ? Icons.shield_rounded
-                          : Icons.power_settings_new_rounded,
-                      key: ValueKey('$protected-$showFlag'),
-                      size: size * 0.26,
-                      color: showFlag
-                          ? Colors.white
-                          : (protected ? WColors.bgDark : _accent),
-                      shadows: showFlag
-                          ? const [Shadow(blurRadius: 12, color: Colors.black87)]
-                          : null,
-                    ),
-                  ),
-                ],
+                      if (showFlag)
+                        SizedBox(
+                          width: flagD,
+                          height: flagD,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              AnimatedSwitcher(
+                                duration: WDur.slow,
+                                switchInCurve: WCurves.enter,
+                                transitionBuilder: (child, anim) =>
+                                    FadeTransition(
+                                  opacity: anim,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(begin: 0.85, end: 1)
+                                        .animate(anim),
+                                    child: child,
+                                  ),
+                                ),
+                                child: FlagFill(
+                                  widget.flagCode,
+                                  diameter: flagD,
+                                  key: ValueKey(widget.flagCode),
+                                ),
+                              ),
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      Colors.black.withValues(alpha: 0.05),
+                                      Colors.black.withValues(alpha: 0.45),
+                                    ],
+                                    stops: const [0.55, 1],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      AnimatedSwitcher(
+                        duration: WDur.normal,
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: ScaleTransition(
+                            scale: Tween<double>(begin: 0.7, end: 1)
+                                .animate(anim),
+                            child: child,
+                          ),
+                        ),
+                        child: Icon(
+                          protected
+                              ? Icons.shield_rounded
+                              : Icons.power_settings_new_rounded,
+                          key: ValueKey('$protected-$showFlag'),
+                          size: size * 0.26,
+                          color: showFlag
+                              ? Colors.white
+                              : (protected ? WColors.bgDark : accent),
+                          shadows: showFlag
+                              ? const [
+                                  Shadow(blurRadius: 12, color: Colors.black87),
+                                ]
+                              : null,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -168,12 +203,16 @@ class _PowerPainter extends CustomPainter {
     required this.accent,
     required this.pulse,
     required this.glow,
+    required this.sweep,
     required this.filled,
   });
 
   final Color accent;
   final double pulse;
   final double glow;
+
+  /// `-1` when idle; otherwise `0..1` phase of the hot-swap sweep arc.
+  final double sweep;
   final bool filled;
 
   @override
@@ -224,6 +263,21 @@ class _PowerPainter extends CustomPainter {
         ..color = accent,
     );
 
+    if (sweep >= 0) {
+      final start = sweep * 2 * math.pi;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: ringR),
+        start,
+        math.pi / 3,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4
+          ..strokeCap = StrokeCap.round
+          ..color = Colors.white.withValues(alpha: 0.9),
+      );
+    }
+
     canvas.drawCircle(
       center,
       ringR - 10,
@@ -238,6 +292,7 @@ class _PowerPainter extends CustomPainter {
   bool shouldRepaint(covariant _PowerPainter old) =>
       old.pulse != pulse ||
       old.glow != glow ||
+      old.sweep != sweep ||
       old.filled != filled ||
       old.accent != accent;
 }

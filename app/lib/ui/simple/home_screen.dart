@@ -41,7 +41,7 @@ class HomeScreen extends ConsumerWidget {
             IconButton(
               tooltip: 'Инспектор нод',
               icon: const Icon(Icons.travel_explore_rounded),
-              onPressed: () => context.push('/settings'),
+              onPressed: () => context.go('/pro'),
             ),
           IconButton(
             tooltip: 'Обновить пул',
@@ -60,30 +60,48 @@ class HomeScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: PageBody(
-          child: ListView(
-          padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.sm, WSpace.lg, WSpace.xxl),
-          children: [
-            const SizedBox(height: WSpace.xl),
-            Center(
-              child: PowerButton(
-                status: controller.status,
-                flagCode: controller.activeNode?.countryCode,
-                onTap: () => _toggle(ref),
+          child: RefreshIndicator(
+            onRefresh: () => ref.read(poolProvider.notifier).refresh(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                WSpace.lg,
+                WSpace.sm,
+                WSpace.lg,
+                WSpace.xxl,
               ),
+              children: [
+                const SizedBox(height: WSpace.xl),
+                Center(
+                  child: PowerButton(
+                    status: controller.status,
+                    flagCode: controller.activeNode?.countryCode,
+                    switching: controller.isSwitching,
+                    onTap: () => _toggle(ref),
+                  ),
+                ),
+                const SizedBox(height: WSpace.xl),
+                _StatusLine(controller: controller),
+                const SizedBox(height: WSpace.xl),
+                FadeSlideIn(
+                  child: _SelectionCard(controller: controller),
+                ),
+                const SizedBox(height: WSpace.md),
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 60),
+                  child: _TrafficCard(controller: controller),
+                ),
+                const SizedBox(height: WSpace.md),
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 120),
+                  child: poolAsync.when(
+                    data: (snap) => _PoolFreshness(snapshot: snap),
+                    loading: () => const SizedBox.shrink(),
+                    error: (e, _) => _PoolFreshness.error('$e'),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: WSpace.xl),
-            _StatusLine(controller: controller),
-            const SizedBox(height: WSpace.xl),
-            _SelectionCard(controller: controller),
-            const SizedBox(height: WSpace.md),
-            _TrafficCard(controller: controller),
-            const SizedBox(height: WSpace.md),
-            poolAsync.when(
-              data: (snap) => _PoolFreshness(snapshot: snap),
-              loading: () => const SizedBox.shrink(),
-              error: (e, _) => _PoolFreshness.error('$e'),
-            ),
-          ],
           ),
         ),
       ),
@@ -102,43 +120,77 @@ class _StatusLine extends StatelessWidget {
       ConnectionStatus.protected => WColors.protected,
       ConnectionStatus.connecting => WColors.connecting,
       ConnectionStatus.error => WColors.danger,
-      ConnectionStatus.disconnected => Theme.of(context).colorScheme.onSurfaceVariant,
+      ConnectionStatus.disconnected =>
+        Theme.of(context).colorScheme.onSurfaceVariant,
     };
-    return Column(
-      children: [
-        Text(
-          s.label,
-          style: Theme.of(context)
-              .textTheme
-              .headlineSmall
-              ?.copyWith(color: color, fontWeight: FontWeight.w700),
+    final label = controller.isSwitching ? 'Смена локации…' : s.label;
+    final key = ValueKey<String>(
+      '$s|${controller.isSwitching}|${controller.activeNode?.id}|'
+      '${controller.lastError}',
+    );
+
+    return AnimatedSwitcher(
+      duration: WDur.normal,
+      switchInCurve: WCurves.enter,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.25),
+            end: Offset.zero,
+          ).animate(anim),
+          child: child,
         ),
-        const SizedBox(height: WSpace.xs),
-        if (s == ConnectionStatus.protected && controller.activeNode != null)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CountryLabel(
-                controller.activeNode!.countryCode,
-                flagSize: 18,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              Text(
-                ' · ${formatDuration(controller.traffic.elapsed)}',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          )
-        else if (s == ConnectionStatus.error && controller.lastError != null)
+      ),
+      child: Column(
+        key: key,
+        children: [
           Text(
-            controller.lastError!,
-            textAlign: TextAlign.center,
+            label,
             style: Theme.of(context)
                 .textTheme
-                .bodySmall
-                ?.copyWith(color: WColors.danger),
+                .headlineSmall
+                ?.copyWith(color: color, fontWeight: FontWeight.w700),
           ),
-      ],
+          const SizedBox(height: WSpace.xs),
+          if (s == ConnectionStatus.protected && controller.activeNode != null)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CountryLabel(
+                  controller.activeNode!.countryCode,
+                  flagSize: 18,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                _ElapsedText(controller: controller),
+              ],
+            )
+          else if (s == ConnectionStatus.error && controller.lastError != null)
+            Text(
+              controller.lastError!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: WColors.danger),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Live session timer, split out so it can tick without re-triggering the
+/// status-line [AnimatedSwitcher].
+class _ElapsedText extends StatelessWidget {
+  const _ElapsedText({required this.controller});
+  final ConnectionController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      ' · ${formatDuration(controller.traffic.elapsed)}',
+      style: Theme.of(context).textTheme.bodyMedium,
     );
   }
 }
@@ -175,32 +227,67 @@ class _SelectionCard extends ConsumerWidget {
       leading = FlagView(n.countryCode, size: 26);
     }
 
+    final key = ValueKey<String>(
+      '${sel.isAuto}|${sel.countryCode}|${sel.node?.id}|$subtitle',
+    );
+
     return SectionCard(
       onTap: () => context.push('/locations'),
       child: Row(
         children: [
-          SizedBox(width: 32, child: Center(child: leading)),
+          AnimatedSwitcher(
+            duration: WDur.normal,
+            switchInCurve: WCurves.enter,
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.6, end: 1).animate(anim),
+                child: child,
+              ),
+            ),
+            child: SizedBox(
+              key: ValueKey<String>('lead|${sel.isAuto}|${sel.countryCode}|'
+                  '${sel.node?.id}'),
+              width: 32,
+              child: Center(child: leading),
+            ),
+          ),
           const SizedBox(width: WSpace.md),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium),
-                    ),
-                    const SizedBox(width: WSpace.sm),
-                    hintFor('auto_fastest'),
-                  ],
+            child: AnimatedSwitcher(
+              duration: WDur.normal,
+              switchInCurve: WCurves.enter,
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.08, 0),
+                    end: Offset.zero,
+                  ).animate(anim),
+                  child: child,
                 ),
-                Text(subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              ],
+              ),
+              child: Column(
+                key: key,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium),
+                      ),
+                      const SizedBox(width: WSpace.sm),
+                      hintFor('auto_fastest'),
+                    ],
+                  ),
+                  Text(subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
             ),
           ),
           const Icon(Icons.chevron_right_rounded),

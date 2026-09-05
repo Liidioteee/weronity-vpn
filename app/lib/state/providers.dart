@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 
 import '../core/connection_controller.dart';
+import '../core/log_controller.dart';
 import '../data/node_filter.dart';
 import '../data/pool_repository.dart';
 import '../data/settings_repository.dart';
@@ -55,6 +58,8 @@ class SettingsNotifier extends Notifier<Settings> {
       _mutate(state.copyWith(preflightEndpoints: v));
   Future<void> rememberLastGoodNode(String? id) =>
       _mutate(state.copyWith(lastGoodNodeId: () => id));
+  Future<void> setRules(RuleBucket bucket, List<String> v) =>
+      _mutate(state.withRules(bucket, v));
 }
 
 final settingsProvider =
@@ -76,6 +81,23 @@ class PoolNotifier extends AsyncNotifier<PoolSnapshot> {
 
 final poolProvider =
     AsyncNotifierProvider<PoolNotifier, PoolSnapshot>(PoolNotifier.new);
+
+/// Keeps the pool fresh in the background: one refresh shortly after start, then
+/// every 30 minutes. Kept alive by a `ref.watch` at the app root.
+final poolPollingProvider = Provider<void>((ref) {
+  final kickoff = Timer(
+    const Duration(seconds: 3),
+    () => ref.read(poolProvider.notifier).refresh(),
+  );
+  final periodic = Timer.periodic(
+    const Duration(minutes: 30),
+    (_) => ref.read(poolProvider.notifier).refresh(),
+  );
+  ref.onDispose(() {
+    kickoff.cancel();
+    periodic.cancel();
+  });
+});
 
 /// All selectable nodes: crowd-sourced pool + user's custom keys / subscriptions.
 final nodesProvider = Provider<List<Node>>((ref) {
@@ -115,8 +137,16 @@ final countryOptionsProvider = Provider<List<CountryOption>>(
 // --- connection --------------------------------------------------------
 
 // ChangeNotifierProvider disposes the notifier itself — no manual ref.onDispose.
+final logControllerProvider =
+    ChangeNotifierProvider<LogController>((ref) => LogController());
+
 final connectionControllerProvider =
-    ChangeNotifierProvider<ConnectionController>((ref) => ConnectionController());
+    ChangeNotifierProvider<ConnectionController>(
+  (ref) => ConnectionController(
+    onLog: (level, tag, message) =>
+        ref.read(logControllerProvider).add(level, tag, message),
+  ),
+);
 
 /// Resolves a [Selection] to a concrete node against the current pool:
 /// an explicit node as-is; otherwise the lowest-ping recommended node in the
