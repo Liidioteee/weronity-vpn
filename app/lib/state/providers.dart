@@ -7,6 +7,7 @@ import '../data/node_filter.dart';
 import '../data/pool_repository.dart';
 import '../data/settings_repository.dart';
 import '../domain/node.dart';
+import 'custom_keys.dart';
 
 /// Hive boxes — opened in `main()` and injected via [ProviderScope.overrides].
 final poolCacheBoxProvider = Provider<Box<String>>(
@@ -76,9 +77,16 @@ class PoolNotifier extends AsyncNotifier<PoolSnapshot> {
 final poolProvider =
     AsyncNotifierProvider<PoolNotifier, PoolSnapshot>(PoolNotifier.new);
 
-/// All selectable nodes: crowd-sourced pool + (later) custom user keys.
+/// All selectable nodes: crowd-sourced pool + user's custom keys / subscriptions.
 final nodesProvider = Provider<List<Node>>((ref) {
-  return ref.watch(poolProvider).valueOrNull?.pool.nodes ?? const [];
+  final pool = ref.watch(poolProvider).valueOrNull?.pool.nodes ?? const <Node>[];
+  final custom = ref.watch(customNodesProvider);
+  if (custom.isEmpty) return pool;
+  final byId = {for (final n in pool) n.id: n};
+  for (final n in custom) {
+    byId.putIfAbsent(n.id, () => n);
+  }
+  return byId.values.toList();
 });
 
 // --- filtering -----------------------------------------------------------
