@@ -41,7 +41,7 @@ app/.flutter-plugins
 app/.flutter-plugins-dependencies
 app/build/
 app/.pub-cache/
-app/pubspec.lock
+# pubspec.lock IS committed for the app (reproducible builds)
 app/android/.gradle/
 app/android/local.properties
 app/android/key.properties
