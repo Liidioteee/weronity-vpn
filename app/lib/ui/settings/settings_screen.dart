@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/hints.dart';
 import '../../app/theme/tokens.dart';
+import '../../core/native/native_core.dart';
 import '../../data/settings_repository.dart';
 import '../../state/providers.dart';
 import '../common/info_hint.dart';
@@ -157,6 +158,26 @@ class SettingsScreen extends ConsumerWidget {
                     hint: hintRecord('zero_log')),
                 subtitle: Text('Персональные данные не собираются',
                     style: Theme.of(context).textTheme.bodySmall),
+              ),
+              const Divider(),
+              Builder(
+                builder: (context) {
+                  final core = ref.watch(nativeCoreProvider);
+                  final ok = core.state == NativeCoreState.ok;
+                  return ListTile(
+                    leading: Icon(
+                      ok ? Icons.memory_rounded : Icons.memory_outlined,
+                      color: ok ? WColors.protected : null,
+                    ),
+                    title: const Text('Нативное ядро'),
+                    subtitle: Text(
+                      ok
+                          ? '${core.version()}'
+                          : 'не подключено — используется заглушка (Фаза 3)',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  );
+                },
               ),
               const Divider(),
               const ListTile(

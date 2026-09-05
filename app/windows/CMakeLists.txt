@@ -87,6 +87,21 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
+# === Weronity native core (Go/cgo FFI library) ===
+# Built out-of-tree by native/scripts/build-windows.sh. Bundled next to the exe
+# so dart:ffi's DynamicLibrary.open("weronity_core.dll") resolves it. If it is
+# missing the app still runs — NativeCore degrades to the stub engine.
+set(WERONITY_CORE_DLL
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../native/build/windows/weronity_core.dll")
+if(EXISTS "${WERONITY_CORE_DLL}")
+  install(FILES "${WERONITY_CORE_DLL}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+else()
+  message(WARNING
+    "weronity_core.dll not found at ${WERONITY_CORE_DLL} — run "
+    "native/scripts/build-windows.sh. The app will use the stub engine.")
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

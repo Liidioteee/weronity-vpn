@@ -6,6 +6,7 @@ import 'package:hive_ce/hive.dart';
 
 import '../core/connection_controller.dart';
 import '../core/log_controller.dart';
+import '../core/native/native_core.dart';
 import '../data/node_filter.dart';
 import '../data/pool_repository.dart';
 import '../data/settings_repository.dart';
@@ -147,6 +148,25 @@ final connectionControllerProvider =
         ref.read(logControllerProvider).add(level, tag, message),
   ),
 );
+
+/// Loads the Go/cgo FFI core once and reports the outcome into the log stream.
+/// The client keeps running on the stub [ConnectionController] regardless; this
+/// just surfaces whether the real engine is wired up yet (Phase 3).
+final nativeCoreProvider = Provider<NativeCore>((ref) {
+  final core = NativeCore.instance();
+  final log = ref.read(logControllerProvider);
+  switch (core.state) {
+    case NativeCoreState.ok:
+      log.add('info', 'ffi', 'нативное ядро загружено: ${core.version()}');
+      log.add('debug', 'ffi', 'ffi smoke: ping(41) = ${core.ping(41)}');
+    case NativeCoreState.unavailable:
+      log.add('warn', 'ffi',
+          'нативное ядро не загрузилось (${core.loadError ?? "?"}) — заглушка');
+    case NativeCoreState.unsupported:
+      log.add('info', 'ffi', 'нативное ядро для этой платформы пока не собрано');
+  }
+  return core;
+});
 
 /// Resolves a [Selection] to a concrete node against the current pool:
 /// an explicit node as-is; otherwise the lowest-ping recommended node in the
