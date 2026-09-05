@@ -101,11 +101,15 @@ class NativeCore {
 
   bool isRunning() => (_isRunning?.call() ?? 0) == 1;
 
-  /// Boots the sing-box engine for one sanitized node [outbound].
-  /// Returns 0 on success. The engine opens a loopback-only SOCKS inbound.
+  /// Boots the sing-box engine for one node [outbound] (Go sanitizes it).
+  /// Returns 0 on success.
+  ///
+  /// [mode] `'proxy'` opens a loopback proxy on 127.0.0.1:[listenPort]
+  /// (0 = pick free; default 55555). `'vpn'` is rejected until Phase 3.3.
   int startNode(
     Map<String, dynamic> outbound, {
-    int socksPort = 0,
+    String mode = 'proxy',
+    int listenPort = 0,
     bool selfTest = true,
     String logLevel = 'info',
   }) {
@@ -113,7 +117,8 @@ class NativeCore {
     if (fn == null) return -1;
     final payload = jsonEncode({
       'outbound': outbound,
-      'socks_port': socksPort,
+      'mode': mode,
+      'listen_port': listenPort,
       'self_test': selfTest,
       'log_level': logLevel,
     });

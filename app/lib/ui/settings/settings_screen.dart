@@ -37,6 +37,71 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           _Group(
+            title: 'Подключение',
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  WSpace.lg,
+                  WSpace.lg,
+                  WSpace.lg,
+                  WSpace.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LabeledHint('Режим работы',
+                        hint: hintRecord('connection_mode'),
+                        style: Theme.of(context).textTheme.bodyLarge),
+                    const SizedBox(height: WSpace.md),
+                    SegmentedButton<ConnectionMode>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(
+                          value: ConnectionMode.proxy,
+                          label: Text('Прокси'),
+                          icon: Icon(Icons.lan_rounded, size: 18),
+                        ),
+                        ButtonSegment(
+                          value: ConnectionMode.vpn,
+                          label: Text('VPN (TUN)'),
+                          icon: Icon(Icons.vpn_lock_rounded, size: 18),
+                        ),
+                      ],
+                      selected: {s.connectionMode},
+                      onSelectionChanged: (v) =>
+                          notifier.setConnectionMode(v.first),
+                    ),
+                    if (s.connectionMode == ConnectionMode.vpn)
+                      Padding(
+                        padding: const EdgeInsets.only(top: WSpace.sm),
+                        child: Text(
+                          'Режим VPN (TUN) появится в Фазе 3.3. Сейчас '
+                          'подключение работает только через прокси.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: WColors.connecting,
+                              ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                enabled: s.connectionMode == ConnectionMode.proxy,
+                title: LabeledHint('Порт прокси',
+                    hint: hintRecord('proxy_port')),
+                subtitle: Text(
+                  '127.0.0.1:${s.proxyPort}  ·  SOCKS5 / HTTP',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                trailing: const Icon(Icons.edit_rounded, size: 18),
+                onTap: s.connectionMode == ConnectionMode.proxy
+                    ? () => _editProxyPort(context, ref, s.proxyPort)
+                    : null,
+              ),
+            ],
+          ),
+          _Group(
             title: 'Оформление',
             children: [
               Padding(
@@ -242,6 +307,39 @@ class SettingsScreen extends ConsumerWidget {
     await ref
         .read(settingsProvider.notifier)
         .setPoolUrlOverride(result.isEmpty ? null : result);
+  }
+
+  Future<void> _editProxyPort(
+    BuildContext context,
+    WidgetRef ref,
+    int current,
+  ) async {
+    final controller = TextEditingController(text: '$current');
+    final result = await showDialog<int?>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Порт локального прокси'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: '1024–65535'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(context, int.tryParse(controller.text.trim())),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+    await ref.read(settingsProvider.notifier).setProxyPort(result);
   }
 
   void _showEndpoints(BuildContext context, List<String> endpoints) {

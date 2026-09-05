@@ -13,6 +13,25 @@ enum RoutingMode {
       };
 }
 
+/// How the tunnel is exposed to the OS.
+enum ConnectionMode {
+  /// A local SOCKS/HTTP proxy on `127.0.0.1:<proxyPort>`. Point apps at it.
+  proxy,
+
+  /// System-wide capture via a TUN device. Needs admin rights (Phase 3.3).
+  vpn;
+
+  String get label => switch (this) {
+        ConnectionMode.proxy => 'Прокси',
+        ConnectionMode.vpn => 'VPN (TUN)',
+      };
+
+  String get wire => name;
+
+  static ConnectionMode parse(Object? v) =>
+      v == 'vpn' || v == 1 ? ConnectionMode.vpn : ConnectionMode.proxy;
+}
+
 /// Custom routing buckets edited in Pro mode; fed to the sing-box route config
 /// in Phase 4.
 enum RuleBucket {
@@ -48,6 +67,8 @@ class Settings {
     this.directRules = const [],
     this.proxyRules = const [],
     this.blockRules = const [],
+    this.connectionMode = ConnectionMode.proxy,
+    this.proxyPort = 55555,
   });
 
   final bool proMode;
@@ -61,6 +82,8 @@ class Settings {
   final List<String> directRules;
   final List<String> proxyRules;
   final List<String> blockRules;
+  final ConnectionMode connectionMode;
+  final int proxyPort;
 
   List<String> rules(RuleBucket bucket) => switch (bucket) {
         RuleBucket.direct => directRules,
@@ -88,6 +111,8 @@ class Settings {
     List<String>? directRules,
     List<String>? proxyRules,
     List<String>? blockRules,
+    ConnectionMode? connectionMode,
+    int? proxyPort,
   }) =>
       Settings(
         proMode: proMode ?? this.proMode,
@@ -104,6 +129,8 @@ class Settings {
         directRules: directRules ?? this.directRules,
         proxyRules: proxyRules ?? this.proxyRules,
         blockRules: blockRules ?? this.blockRules,
+        connectionMode: connectionMode ?? this.connectionMode,
+        proxyPort: proxyPort ?? this.proxyPort,
       );
 
   Settings withRules(RuleBucket bucket, List<String> value) => switch (bucket) {
@@ -138,6 +165,9 @@ class SettingsRepository {
         directRules: _list('directRules'),
         proxyRules: _list('proxyRules'),
         blockRules: _list('blockRules'),
+        connectionMode:
+            ConnectionMode.parse(_box.get('connectionMode', defaultValue: 0)),
+        proxyPort: (_box.get('proxyPort', defaultValue: 55555) as num).toInt(),
       );
 
   Future<void> save(Settings s) async {
@@ -153,6 +183,8 @@ class SettingsRepository {
       'directRules': s.directRules,
       'proxyRules': s.proxyRules,
       'blockRules': s.blockRules,
+      'connectionMode': s.connectionMode.index,
+      'proxyPort': s.proxyPort,
     });
   }
 }

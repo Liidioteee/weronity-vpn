@@ -212,13 +212,42 @@ func sanitizeOutbound(raw map[string]any) (*SanitizeResult, error) {
 	return &SanitizeResult{Outbound: clean, Warnings: warns}, nil
 }
 
-// StartConfig is the JSON contract passed from Dart to wrnStart in Phase 3.1.
+// StartConfig is the JSON contract passed from Dart to wrnStart.
 type StartConfig struct {
-	Outbound    map[string]any `json:"outbound"`
-	SocksPort   int            `json:"socks_port"`
-	LogLevel    string         `json:"log_level"`
-	SelfTest    *bool          `json:"self_test"`
-	SelfTestURL string         `json:"self_test_url"`
+	Outbound map[string]any `json:"outbound"`
+
+	// Mode: "proxy" (default) exposes a local SOCKS/HTTP proxy on
+	// 127.0.0.1:<listen_port>; "vpn" captures all traffic via a TUN device
+	// (Phase 3.3 — rejected for now).
+	Mode string `json:"mode"`
+
+	// ListenPort is the public proxy port in proxy mode (default 55555;
+	// 0 = pick a free one). Always bound to 127.0.0.1.
+	ListenPort int `json:"listen_port"`
+
+	// SocksPort is the *internal* sing-box inbound port (loopback, ephemeral by
+	// default). Rarely set from Dart — mostly for tests.
+	SocksPort int `json:"socks_port"`
+
+	LogLevel    string `json:"log_level"`
+	SelfTest    *bool  `json:"self_test"`
+	SelfTestURL string `json:"self_test_url"`
+}
+
+const defaultProxyPort = 55555
+
+func (c StartConfig) mode() string {
+	if strings.ToLower(strings.TrimSpace(c.Mode)) == "vpn" {
+		return "vpn"
+	}
+	return "proxy"
+}
+
+func (c StartConfig) listenPort() int {
+	if c.ListenPort > 0 && c.ListenPort <= 65535 {
+		return c.ListenPort
+	}
+	return defaultProxyPort
 }
 
 func (c StartConfig) selfTestEnabled() bool { return c.SelfTest == nil || *c.SelfTest }

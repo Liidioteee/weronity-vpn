@@ -7,6 +7,7 @@ import 'package:hive_ce/hive.dart';
 import '../core/connection_controller.dart';
 import '../core/log_controller.dart';
 import '../core/native/native_core.dart';
+import '../core/singbox_bridge.dart';
 import '../data/node_filter.dart';
 import '../data/pool_repository.dart';
 import '../data/settings_repository.dart';
@@ -61,6 +62,10 @@ class SettingsNotifier extends Notifier<Settings> {
       _mutate(state.copyWith(lastGoodNodeId: () => id));
   Future<void> setRules(RuleBucket bucket, List<String> v) =>
       _mutate(state.withRules(bucket, v));
+  Future<void> setConnectionMode(ConnectionMode v) =>
+      _mutate(state.copyWith(connectionMode: v));
+  Future<void> setProxyPort(int v) =>
+      _mutate(state.copyWith(proxyPort: v.clamp(1024, 65535)));
 }
 
 final settingsProvider =
@@ -141,12 +146,25 @@ final countryOptionsProvider = Provider<List<CountryOption>>(
 final logControllerProvider =
     ChangeNotifierProvider<LogController>((ref) => LogController());
 
-final connectionControllerProvider =
-    ChangeNotifierProvider<ConnectionController>(
-  (ref) => ConnectionController(
-    onLog: (level, tag, message) =>
-        ref.read(logControllerProvider).add(level, tag, message),
-  ),
+/// The active connection engine: the real sing-box bridge when the native core
+/// loaded, otherwise the Phase-2 stub. Both satisfy [ConnectionEngine], so the
+/// whole UI is unchanged.
+final connectionControllerProvider = ChangeNotifierProvider<ConnectionEngine>(
+  (ref) {
+    void log(String level, String tag, String message) =>
+        ref.read(logControllerProvider).add(level, tag, message);
+
+    final core = ref.watch(nativeCoreProvider);
+    if (core.isAvailable) {
+      return SingBoxBridge(
+        core: core,
+        modeOf: () => ref.read(settingsProvider).connectionMode,
+        portOf: () => ref.read(settingsProvider).proxyPort,
+        onLog: log,
+      );
+    }
+    return ConnectionController(onLog: log);
+  },
 );
 
 /// Loads the Go/cgo FFI core once and reports the outcome into the log stream.

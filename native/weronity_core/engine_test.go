@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestPing(t *testing.T) {
@@ -35,6 +34,17 @@ func TestStartRejectsHostileOutboundType(t *testing.T) {
 	}
 }
 
+func TestVpnModeIsRejectedForNow(t *testing.T) {
+	t.Cleanup(stopEngine)
+	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.9","server_port":443,"password":"x"},"mode":"vpn","self_test":false}`
+	if err := startEngine(cfg); err == nil {
+		t.Fatal("vpn/tun mode should be rejected until Phase 3.3")
+	}
+	if engineRunning() {
+		t.Fatal("engine must not be running")
+	}
+}
+
 // Boots a real sing-box against an unroutable endpoint: creation + start must
 // succeed (dialing is lazy), stats must reflect it, stop must clean up.
 func TestEngineLifecycleWithRealSingBox(t *testing.T) {
@@ -45,6 +55,7 @@ func TestEngineLifecycleWithRealSingBox(t *testing.T) {
 	setEmitter(func(p string) { mu.Lock(); lines = append(lines, p); mu.Unlock() })
 	t.Cleanup(func() { setEmitter(nil) })
 
+	// listen_port 0 -> the relay takes a free port (no clash with 55555 / CI)
 	cfg := `{
 		"outbound": {
 			"type": "trojan",
@@ -53,6 +64,8 @@ func TestEngineLifecycleWithRealSingBox(t *testing.T) {
 			"password": "test",
 			"tls": {"enabled": true, "server_name": "example.com"}
 		},
+		"mode": "proxy",
+		"listen_port": 0,
 		"self_test": false,
 		"log_level": "info"
 	}`
@@ -70,9 +83,20 @@ func TestEngineLifecycleWithRealSingBox(t *testing.T) {
 	if snap["running"] != true {
 		t.Errorf("stats.running = %v", snap["running"])
 	}
+	if snap["mode"] != "proxy" {
+		t.Errorf("stats.mode = %v", snap["mode"])
+	}
 	port, _ := snap["socks_port"].(float64)
 	if port < 1 || port > 65535 {
 		t.Errorf("stats.socks_port out of range: %v", snap["socks_port"])
+	}
+	if listen, _ := snap["listen"].(string); !strings.HasPrefix(listen, "127.0.0.1:") {
+		t.Errorf("stats.listen = %v", snap["listen"])
+	}
+	for _, k := range []string{"up_bytes", "down_bytes", "up_bps", "down_bps", "ping_ms"} {
+		if _, ok := snap[k]; !ok {
+			t.Errorf("stats missing %q", k)
+		}
 	}
 
 	stopEngine()
@@ -86,19 +110,17 @@ func TestEngineLifecycleWithRealSingBox(t *testing.T) {
 	mu.Lock()
 	joined := strings.Join(lines, "\n")
 	mu.Unlock()
-	if !strings.Contains(joined, "sing-box up") || !strings.Contains(joined, "sing-box stopped") {
+	if !strings.Contains(joined, "прокси поднят") || !strings.Contains(joined, "движок остановлен") {
 		t.Errorf("expected up/stopped log lines, got:\n%s", joined)
 	}
 }
 
 func TestDoubleStartIsNoop(t *testing.T) {
 	t.Cleanup(stopEngine)
-	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.2","server_port":443,"password":"x"},"self_test":false}`
+	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.2","server_port":443,"password":"x"},"listen_port":0,"self_test":false}`
 	if err := startEngine(cfg); err != nil {
 		t.Fatalf("first start: %v", err)
 	}
-	deadline := time.After(2 * time.Second)
-	_ = deadline
 	if err := startEngine(cfg); err != nil {
 		t.Fatalf("second start should be a silent no-op, got: %v", err)
 	}

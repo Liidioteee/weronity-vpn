@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-const coreVersion = "weronity-core 0.1.0 (sing-box v1.14.0)"
+const coreVersion = "weronity-core 0.2.0 (sing-box v1.14.0)"
 
 // ping is the FFI marshalling smoke test: x -> x+1.
 func ping(x int) int { return x + 1 }
@@ -71,22 +72,33 @@ type selfTestResult struct {
 }
 
 var (
-	engMu     sync.Mutex
-	running   atomic.Bool
-	instance  *box.Box
-	cancelBox context.CancelFunc
-	socksPort int
-	startedAt time.Time
+	engMu      sync.Mutex
+	running    atomic.Bool
+	instance   *box.Box
+	cancelBox  context.CancelFunc
+	relay      *countingRelay
+	engineMode string
+	publicPort int
+	socksPort  int
+	startedAt  time.Time
+	stopPing   chan struct{}
+
+	pingMs atomic.Int64
 
 	selfMu   sync.Mutex
 	selfTest selfTestResult
+
+	rateMu               sync.Mutex
+	rateAt               time.Time
+	rateUp, rateDown     int64
+	rateUpBps, rateDnBps float64
 )
 
 func engineRunning() bool { return running.Load() }
 
 // startEngine sanitises the node outbound, generates a loopback-only sing-box
-// config, boots the engine and (optionally) runs a one-shot connectivity probe
-// through the local SOCKS inbound.
+// config, boots the engine and — in proxy mode — a counting relay on the public
+// port. It then runs a one-shot connectivity probe and a periodic latency probe.
 func startEngine(configJSON string) (err error) {
 	engMu.Lock()
 	defer engMu.Unlock()
@@ -106,6 +118,12 @@ func startEngine(configJSON string) (err error) {
 		return errors.New("invalid start config json")
 	}
 
+	if sc.mode() == "vpn" {
+		msg := "режим VPN (TUN) появится в Фазе 3.3 — пока доступен только режим прокси"
+		emit("error", "core", msg)
+		return errors.New("vpn/tun mode not implemented yet")
+	}
+
 	san, e := sanitizeOutbound(sc.Outbound)
 	if e != nil {
 		emit("error", "core", "rejected node outbound: "+e.Error())
@@ -115,15 +133,16 @@ func startEngine(configJSON string) (err error) {
 		emit("warn", "core", w)
 	}
 
-	port := sc.SocksPort
-	if port == 0 {
-		port, e = freeLoopbackPort()
+	// Internal sing-box inbound port (loopback, ephemeral by default).
+	inner := sc.SocksPort
+	if inner == 0 {
+		inner, e = freeLoopbackPort()
 		if e != nil {
 			return e
 		}
 	}
 
-	raw, e := buildSingBoxConfig(san.Outbound, port, sc.logLevel())
+	raw, e := buildSingBoxConfig(san.Outbound, inner, sc.logLevel())
 	if e != nil {
 		emit("error", "core", "config generation failed: "+e.Error())
 		return e
@@ -137,14 +156,9 @@ func startEngine(configJSON string) (err error) {
 	}
 
 	runCtx, cancel := context.WithCancel(baseCtx)
-	// NB: no PlatformLogWriter in box.Options — that would force sing-box to
-	// build an in-memory clash server *and* a cache.db in the CWD. We attach the
-	// log writer to the factory afterwards instead (see below), which keeps the
-	// build free of with_clash_api and drops no logs that matter.
-	b, e := box.New(box.Options{
-		Context: runCtx,
-		Options: options,
-	})
+	// No PlatformLogWriter in box.Options — that would force an in-memory clash
+	// server + a cache.db in the CWD. We attach the writer to the factory after.
+	b, e := box.New(box.Options{Context: runCtx, Options: options})
 	if e != nil {
 		cancel()
 		emit("error", "core", "engine create failed: "+e.Error())
@@ -160,19 +174,43 @@ func startEngine(configJSON string) (err error) {
 		return e
 	}
 
+	// Counting relay on the public proxy port, in front of the sing-box inbound.
+	upstream := fmt.Sprintf("127.0.0.1:%d", inner)
+	wantPort := sc.listenPort()
+	rl, e := startCountingRelay(fmt.Sprintf("127.0.0.1:%d", wantPort), upstream)
+	if e != nil {
+		emit("warn", "core",
+			fmt.Sprintf("порт %d занят (%s) — беру свободный", wantPort, e.Error()))
+		rl, e = startCountingRelay("127.0.0.1:0", upstream)
+	}
+	if e != nil {
+		_ = b.Close()
+		cancel()
+		emit("error", "core", "не удалось открыть локальный порт: "+e.Error())
+		return e
+	}
+	_, portStr, _ := net.SplitHostPort(rl.addr())
+	publicPort, _ = strconv.Atoi(portStr)
+
 	instance = b
 	cancelBox = cancel
-	socksPort = port
+	relay = rl
+	engineMode = "proxy"
+	socksPort = inner
 	startedAt = time.Now()
+	pingMs.Store(0)
+	resetRate()
 	running.Store(true)
 	selfMu.Lock()
 	selfTest = selfTestResult{}
 	selfMu.Unlock()
 
-	emit("info", "core", fmt.Sprintf("sing-box up — socks 127.0.0.1:%d", port))
+	emit("info", "core", fmt.Sprintf("прокси поднят — 127.0.0.1:%d (ядро на :%d)", publicPort, inner))
 
+	stopPing = make(chan struct{})
+	go pingLoop(publicPort, stopPing)
 	if sc.selfTestEnabled() {
-		go runSelfTest(port, sc.selfTestURL())
+		go runSelfTest(publicPort, sc.selfTestURL())
 	}
 	return nil
 }
@@ -183,6 +221,14 @@ func stopEngine() {
 	if !running.Load() {
 		return
 	}
+	if stopPing != nil {
+		close(stopPing)
+		stopPing = nil
+	}
+	if relay != nil {
+		_ = relay.Close()
+		relay = nil
+	}
 	if instance != nil {
 		_ = instance.Close()
 		instance = nil
@@ -192,7 +238,7 @@ func stopEngine() {
 		cancelBox = nil
 	}
 	running.Store(false)
-	emit("info", "core", "sing-box stopped")
+	emit("info", "core", "движок остановлен")
 }
 
 func statsJSON() string {
@@ -200,9 +246,22 @@ func statsJSON() string {
 	st := selfTest
 	selfMu.Unlock()
 
+	var up, down int64
+	if relay != nil {
+		up, down = relay.upBytes(), relay.downBytes()
+	}
+	upBps, dnBps := sampleRate(up, down)
+
 	snap := map[string]any{
 		"running":    running.Load(),
-		"socks_port": socksPort,
+		"mode":       engineMode,
+		"listen":     fmt.Sprintf("127.0.0.1:%d", publicPort),
+		"socks_port": publicPort,
+		"up_bytes":   up,
+		"down_bytes": down,
+		"up_bps":     upBps,
+		"down_bps":   dnBps,
+		"ping_ms":    pingMs.Load(),
 		"self_test":  st,
 	}
 	if running.Load() {
@@ -214,8 +273,71 @@ func statsJSON() string {
 	return string(out)
 }
 
-// runSelfTest performs one HTTP request through the local SOCKS proxy so we can
-// confirm the tunnel actually carries traffic and measure real latency.
+func resetRate() {
+	rateMu.Lock()
+	rateAt = time.Now()
+	rateUp, rateDown = 0, 0
+	rateUpBps, rateDnBps = 0, 0
+	rateMu.Unlock()
+}
+
+// sampleRate turns cumulative byte counters into a bytes/second estimate based
+// on the delta since the previous call.
+func sampleRate(up, down int64) (float64, float64) {
+	rateMu.Lock()
+	defer rateMu.Unlock()
+	now := time.Now()
+	dt := now.Sub(rateAt).Seconds()
+	if dt >= 0.2 {
+		rateUpBps = float64(up-rateUp) / dt
+		rateDnBps = float64(down-rateDown) / dt
+		if rateUpBps < 0 {
+			rateUpBps = 0
+		}
+		if rateDnBps < 0 {
+			rateDnBps = 0
+		}
+		rateAt, rateUp, rateDown = now, up, down
+	}
+	return rateUpBps, rateDnBps
+}
+
+// pingLoop measures round-trip latency through the local proxy every 5s so the
+// Pro latency graph shows real numbers.
+func pingLoop(port int, stop <-chan struct{}) {
+	probe := func() {
+		start := time.Now()
+		c, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 3*time.Second)
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		// SOCKS5 no-auth handshake round-trip is a cheap, real RTT signal.
+		if _, err := c.Write([]byte{0x05, 0x01, 0x00}); err != nil {
+			return
+		}
+		buf := make([]byte, 2)
+		_ = c.SetReadDeadline(time.Now().Add(3 * time.Second))
+		if _, err := c.Read(buf); err != nil {
+			return
+		}
+		pingMs.Store(time.Since(start).Milliseconds())
+	}
+	probe()
+	t := time.NewTicker(5 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+			probe()
+		}
+	}
+}
+
+// runSelfTest performs one HTTP request through the local proxy to confirm the
+// tunnel actually carries traffic and to measure real latency.
 func runSelfTest(port int, url string) {
 	start := time.Now()
 	res := selfTestResult{Done: true}

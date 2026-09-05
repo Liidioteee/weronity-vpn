@@ -16,10 +16,13 @@ Windows из листа «Проверка ядра sing-box» (Настройк
 weronity_core/
   go.mod            module weronity/core (go 1.25.5, sing-box v1.14.0)
   config.go         ХАРДНЕНИНГ: sanitizeOutbound (allowlist) + buildSingBoxConfig
-                    (loopback-only inbound, без control API) + assertConfigSafe
-  config_test.go    тесты санитайзера (без cgo/sing-box)
-  engine.go         реальный движок sing-box: box.New/Start/Close, логи, self-test
-  engine_test.go    lifecycle с настоящим sing-box
+                    (loopback-only inbound, без control API) + assertConfigSafe;
+                    StartConfig (mode: proxy|vpn, listen_port)
+  config_test.go    тесты санитайзера + режимов (без cgo/sing-box)
+  engine.go         реальный движок sing-box: box.New/Start/Close, логи, self-test,
+                    pingLoop (RTT), rate-meter; vpn-режим пока отклоняется
+  relay.go          считающий TCP-релай перед sing-box-инбаундом (реальные байты)
+  engine_test.go    lifecycle с настоящим sing-box; relay_test.go — пайп + счётчики
   events.go         кольцевой буфер событий (Dart поллит wrnDrainEvents)
   bridge.go         //export C-шимы, import "C"
 include/
@@ -41,14 +44,19 @@ void  wrnFree(char* p);
 int   wrnStart(const char* config_json);     // {outbound, socks_port, self_test, log_level}; 0 = ok
 int   wrnStop(void);
 int   wrnIsRunning(void);
-char* wrnStatsJSON(void);                    // {running, socks_port, uptime_ms, self_test{...}}; wrnFree
+char* wrnStatsJSON(void);                    // {running, mode, listen, up_bytes, down_bytes,
+                                            //  up_bps, down_bps, ping_ms, uptime_ms, self_test{...}}; wrnFree
 char* wrnDrainEvents(void);                  // JSON-массив [{kind:"log",level,tag,message}]; wrnFree
 ```
 
-`wrnStart` принимает НЕ готовый конфиг sing-box, а `{"outbound": <объект ноды из
-пула>, ...}`. `outbound` — недоверенный ввод; Go его санитизирует и оборачивает
-в loopback-only конфиг. Никакого C-колбэка для логов (Go освобождает строку
-сразу — было бы use-after-free); Dart поллит `wrnDrainEvents`.
+`wrnStart` принимает НЕ готовый конфиг sing-box, а
+`{"outbound": <объект ноды из пула>, "mode": "proxy"|"vpn",
+"listen_port": 55555, ...}`. `outbound` — недоверенный ввод; Go его
+санитизирует и оборачивает в loopback-only конфиг. Режим `proxy` поднимает
+локальный SOCKS/HTTP на `127.0.0.1:<listen_port>` (перед sing-box стоит
+считающий релай — реальные счётчики байт по TCP). Режим `vpn` (TUN) пока
+возвращает ошибку — Фаза 3.3. Никакого C-колбэка для логов (Go освобождает
+строку сразу — было бы use-after-free); Dart поллит `wrnDrainEvents`.
 
 Dart-сторона: `app/lib/core/native/native_core.dart` (`NativeCore.instance()`).
 Если библиотеки нет — `NativeCoreState.unavailable`, приложение продолжает

@@ -64,6 +64,25 @@ class TrafficPoint {
   final int pingMs;
 }
 
+/// The surface the UI drives, regardless of whether it is backed by the Phase-2
+/// stub ([ConnectionController]) or the real sing-box engine ([SingBoxBridge]).
+abstract class ConnectionEngine implements ChangeNotifier {
+  ConnectionStatus get status;
+  Selection get selection;
+  Node? get activeNode;
+  String? get lastError;
+  TrafficSample get traffic;
+  List<TrafficPoint> get history;
+  bool get isBusy;
+  bool get isActive;
+  bool get isSwitching;
+
+  Future<void> connect(Node? Function(Selection) resolve);
+  Future<void> disconnect();
+  Future<bool> select(Selection selection, Node? Function(Selection) resolve);
+  Future<void> toggle(Node? Function(Selection) resolve);
+}
+
 /// Auto-selects the lowest-latency node when the user picks "⚡ Авто".
 class Selection {
   const Selection.auto()
@@ -88,7 +107,7 @@ class Selection {
 /// emits synthetic traffic + a synthetic core-log stream, but performs no real
 /// tunnelling. Phase 3 replaces the body of [connect]/[disconnect]/[select] with
 /// the sing-box FFI bridge; the public surface is intended to stay the same.
-class ConnectionController extends ChangeNotifier {
+class ConnectionController extends ChangeNotifier implements ConnectionEngine {
   ConnectionController({this.onLog});
 
   /// Optional core-log sink; wired to the [LogController] in `providers.dart`.
@@ -111,13 +130,21 @@ class ConnectionController extends ChangeNotifier {
   int _down = 0;
   final _rng = Random();
 
+  @override
   ConnectionStatus get status => _status;
+  @override
   Selection get selection => _selection;
+  @override
   Node? get activeNode => _activeNode;
+  @override
   String? get lastError => _lastError;
+  @override
   TrafficSample get traffic => _traffic;
+  @override
   List<TrafficPoint> get history => List<TrafficPoint>.unmodifiable(_history);
+  @override
   bool get isBusy => _status == ConnectionStatus.connecting;
+  @override
   bool get isActive =>
       _status == ConnectionStatus.protected ||
       _status == ConnectionStatus.connecting;
@@ -125,6 +152,7 @@ class ConnectionController extends ChangeNotifier {
   bool _switching = false;
 
   /// True while a live location switch is settling (session stays "protected").
+  @override
   bool get isSwitching => _switching;
 
   void _log(String level, String tag, String message) =>
@@ -136,6 +164,7 @@ class ConnectionController extends ChangeNotifier {
   /// location without dropping the connection (the stub for sing-box's
   /// urltest/selector switch — see docs/architecture.md). Returns `false` when
   /// the new location has no usable node; the current session is left intact.
+  @override
   Future<bool> select(
     Selection selection,
     Node? Function(Selection) resolve,
@@ -164,6 +193,7 @@ class ConnectionController extends ChangeNotifier {
 
   /// [resolve] maps the current [Selection] to a concrete node (lowest ping for
   /// auto / a country). Provided by the caller so the controller stays UI-free.
+  @override
   Future<void> connect(Node? Function(Selection) resolve) async {
     if (isActive) return;
     _lastError = null;
@@ -194,6 +224,7 @@ class ConnectionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   Future<void> disconnect() async {
     _tick?.cancel();
     _tick = null;
@@ -208,6 +239,7 @@ class ConnectionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   Future<void> toggle(Node? Function(Selection) resolve) =>
       isActive ? disconnect() : connect(resolve);
 

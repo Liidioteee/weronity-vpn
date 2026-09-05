@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/hints.dart';
 import '../../app/theme/tokens.dart';
 import '../../core/connection_controller.dart';
+import '../../core/singbox_bridge.dart';
 import '../../data/pool_repository.dart';
 import '../../domain/country_names.dart';
 import '../../state/providers.dart';
@@ -111,7 +112,7 @@ class HomeScreen extends ConsumerWidget {
 
 class _StatusLine extends StatelessWidget {
   const _StatusLine({required this.controller});
-  final ConnectionController controller;
+  final ConnectionEngine controller;
 
   @override
   Widget build(BuildContext context) {
@@ -154,15 +155,29 @@ class _StatusLine extends StatelessWidget {
           ),
           const SizedBox(height: WSpace.xs),
           if (s == ConnectionStatus.protected && controller.activeNode != null)
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            Column(
               children: [
-                CountryLabel(
-                  controller.activeNode!.countryCode,
-                  flagSize: 18,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CountryLabel(
+                      controller.activeNode!.countryCode,
+                      flagSize: 18,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    _ElapsedText(controller: controller),
+                  ],
                 ),
-                _ElapsedText(controller: controller),
+                if (controller case final SingBoxBridge b
+                    when b.proxyEndpoint != null) ...[
+                  const SizedBox(height: WSpace.xs),
+                  Text(
+                    'SOCKS5 · ${b.proxyEndpoint}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
               ],
             )
           else if (s == ConnectionStatus.error && controller.lastError != null)
@@ -184,7 +199,7 @@ class _StatusLine extends StatelessWidget {
 /// status-line [AnimatedSwitcher].
 class _ElapsedText extends StatelessWidget {
   const _ElapsedText({required this.controller});
-  final ConnectionController controller;
+  final ConnectionEngine controller;
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +212,7 @@ class _ElapsedText extends StatelessWidget {
 
 class _SelectionCard extends ConsumerWidget {
   const _SelectionCard({required this.controller});
-  final ConnectionController controller;
+  final ConnectionEngine controller;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -299,7 +314,7 @@ class _SelectionCard extends ConsumerWidget {
 
 class _TrafficCard extends StatelessWidget {
   const _TrafficCard({required this.controller});
-  final ConnectionController controller;
+  final ConnectionEngine controller;
 
   @override
   Widget build(BuildContext context) {

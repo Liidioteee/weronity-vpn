@@ -78,5 +78,27 @@ void main() {
       expect(back.proxyRules, ['youtube.com', 'twitter.com']);
       expect(back.blockRules, ['ads.example']);
     });
+
+    test('connection mode + proxy port default and round-trip', () async {
+      final repo = SettingsRepository(_FakeBox());
+      expect(repo.load().connectionMode, ConnectionMode.proxy);
+      expect(repo.load().proxyPort, 55555);
+
+      await repo.save(const Settings(
+        connectionMode: ConnectionMode.vpn,
+        proxyPort: 10800,
+      ));
+      final back = repo.load();
+      expect(back.connectionMode, ConnectionMode.vpn);
+      expect(back.proxyPort, 10800);
+    });
+  });
+
+  test('ConnectionMode.parse tolerates strings and ints', () {
+    expect(ConnectionMode.parse(0), ConnectionMode.proxy);
+    expect(ConnectionMode.parse(1), ConnectionMode.vpn);
+    expect(ConnectionMode.parse('vpn'), ConnectionMode.vpn);
+    expect(ConnectionMode.parse('proxy'), ConnectionMode.proxy);
+    expect(ConnectionMode.parse(null), ConnectionMode.proxy);
   });
 }

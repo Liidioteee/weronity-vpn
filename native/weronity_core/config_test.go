@@ -177,9 +177,31 @@ func TestStartConfigDefaults(t *testing.T) {
 	if !strings.HasPrefix(sc.selfTestURL(), "http") {
 		t.Errorf("default self-test url: %s", sc.selfTestURL())
 	}
+	if sc.mode() != "proxy" {
+		t.Errorf("default mode: %s", sc.mode())
+	}
+	if sc.listenPort() != 55555 {
+		t.Errorf("default proxy port: %d", sc.listenPort())
+	}
 	no := false
 	sc.SelfTest = &no
 	if sc.selfTestEnabled() {
 		t.Error("self-test explicitly disabled")
+	}
+}
+
+func TestStartConfigModeParsing(t *testing.T) {
+	cases := map[string]string{"": "proxy", "proxy": "proxy", "PROXY": "proxy",
+		"vpn": "vpn", " VPN ": "vpn", "tun": "proxy" /* unknown -> proxy */}
+	for in, want := range cases {
+		if got := (StartConfig{Mode: in}).mode(); got != want {
+			t.Errorf("mode(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if (StartConfig{ListenPort: 8080}).listenPort() != 8080 {
+		t.Error("explicit listen_port ignored")
+	}
+	if (StartConfig{ListenPort: 70000}).listenPort() != 55555 {
+		t.Error("out-of-range listen_port should fall back to default")
 	}
 }
