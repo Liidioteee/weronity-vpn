@@ -1,0 +1,65 @@
+# ── OS / editors ───────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# ── Toolchains / SDKs (installed outside the repo) ──────────────
+/d/sdk/
+*.zip.download
+
+# ── Python (collector) ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+collector/.cache/
+collector/out/
+
+# ── Node / Cloudflare (backend) ────────────────────────────────
+node_modules/
+.wrangler/
+backend/dist/
+*.log
+.dev.vars
+.env
+.env.*
+!.env.example
+
+# ── Flutter / Dart (app) ───────────────────────────────────────
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/build/
+app/.pub-cache/
+app/pubspec.lock
+app/android/.gradle/
+app/android/local.properties
+app/android/key.properties
+app/**/GeneratedPluginRegistrant.*
+app/ios/Pods/
+app/linux/flutter/ephemeral/
+app/windows/flutter/ephemeral/
+*.g.dart
+*.freezed.dart
+
+# ── Native core (Go FFI) ───────────────────────────────────────
+native/**/out/
+native/**/*.so
+native/**/*.dll
+native/**/*.dylib
+native/**/*.a
+native/**/*.h.bak
+
+# ── Generated / downloaded data ────────────────────────────────
+*.mmdb
+geoip/
+secrets.local.*
