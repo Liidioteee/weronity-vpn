@@ -88,16 +88,24 @@ class Selection {
   const Selection.auto()
       : isAuto = true,
         countryCode = null,
+        bundleId = null,
         node = null;
   const Selection.country(String this.countryCode)
       : isAuto = false,
+        bundleId = null,
         node = null;
   const Selection.node(Node this.node)
       : isAuto = false,
-        countryCode = null;
+        countryCode = null,
+        bundleId = null;
+  const Selection.bundle(String this.bundleId)
+      : isAuto = false,
+        countryCode = null,
+        node = null;
 
   final bool isAuto;
   final String? countryCode;
+  final String? bundleId;
   final Node? node;
 }
 

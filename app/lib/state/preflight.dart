@@ -161,6 +161,10 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
   }
 
   void clear() => state = const {};
+
+  @visibleForTesting
+  void debugPut(String nodeId, NodeProbe probe) =>
+      state = {...state, nodeId: probe};
 }
 
 final preflightProvider =

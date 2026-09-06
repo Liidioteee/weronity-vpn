@@ -10,15 +10,20 @@ import 'package:weronity/state/custom_keys.dart';
 class _FakeRepo implements CustomKeysRepository {
   List<CustomKey> keys = [];
   List<Subscription> subs = [];
+  List<KeyBundle> bundles = [];
 
   @override
   Future<List<CustomKey>> loadKeys() async => keys;
   @override
   Future<List<Subscription>> loadSubs() async => subs;
   @override
+  Future<List<KeyBundle>> loadBundles() async => bundles;
+  @override
   Future<void> saveKeys(List<CustomKey> k) async => keys = k;
   @override
   Future<void> saveSubs(List<Subscription> s) async => subs = s;
+  @override
+  Future<void> saveBundles(List<KeyBundle> b) async => bundles = b;
 }
 
 const _key1 =
@@ -119,5 +124,44 @@ void main() {
     await n.removeKeys({_key1, _key2, 'not-present://x'});
     expect(c.read(customKeysProvider).requireValue.keys, isEmpty);
     expect(repo.keys, isEmpty);
+  });
+
+  test('addFromText reports the ids it added; createBundle persists', () async {
+    final repo = _FakeRepo();
+    final c = _container(repo);
+    addTearDown(c.dispose);
+    await c.read(customKeysProvider.future);
+    final n = c.read(customKeysProvider.notifier);
+
+    final r = await n.addFromText('$_key1\n$_key2');
+    expect(r.added, 2);
+    expect(r.addedNodeIds, hasLength(2));
+
+    final id = await n.createBundle('Тест', r.addedNodeIds);
+    expect(id, isNotEmpty);
+    final data = c.read(customKeysProvider).requireValue;
+    expect(data.bundles, hasLength(1));
+    expect(data.bundles.single.name, 'Тест');
+    expect(data.bundles.single.nodeIds, r.addedNodeIds);
+    expect(repo.bundles, hasLength(1)); // persisted
+
+    await n.renameBundle(id, 'Новое имя');
+    expect(c.read(customKeysProvider).requireValue.bundles.single.name,
+        'Новое имя');
+
+    await n.removeBundle(id);
+    expect(c.read(customKeysProvider).requireValue.bundles, isEmpty);
+    expect(repo.bundles, isEmpty);
+  });
+
+  test('createBundle needs at least one node id', () async {
+    final repo = _FakeRepo();
+    final c = _container(repo);
+    addTearDown(c.dispose);
+    await c.read(customKeysProvider.future);
+    final id =
+        await c.read(customKeysProvider.notifier).createBundle('x', const []);
+    expect(id, isEmpty);
+    expect(c.read(customKeysProvider).requireValue.bundles, isEmpty);
   });
 }

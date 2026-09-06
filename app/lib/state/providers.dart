@@ -12,6 +12,7 @@ import '../data/node_filter.dart';
 import '../data/pool_repository.dart';
 import '../data/settings_repository.dart';
 import '../domain/node.dart';
+import 'bundles.dart';
 import 'custom_keys.dart';
 
 /// Hive boxes — opened in `main()` and injected via [ProviderScope.overrides].
@@ -198,8 +199,18 @@ final nativeCoreProvider = Provider<NativeCore>((ref) {
 /// used node is Phase 4.
 final resolveSelectionProvider = Provider<Node? Function(Selection)>((ref) {
   final nodes = ref.watch(nodesProvider);
+  final bundles = ref.watch(allBundlesProvider);
   return (sel) {
     if (sel.node != null) return sel.node;
+
+    if (sel.bundleId != null) {
+      for (final b in bundles) {
+        if (b.id != sel.bundleId) continue;
+        final live = bundleLiveNodes(b, nodes);
+        return live.isEmpty ? null : live.first;
+      }
+      return null;
+    }
 
     Iterable<Node> pool = nodes.where((n) => n.health.alive);
     if (sel.countryCode != null) {

@@ -24,6 +24,7 @@ class CustomKeysData {
     this.keys = const [],
     this.subs = const [],
     this.nodes = const [],
+    this.bundles = const [],
   });
 
   /// Individually added keys (paste / QR).
@@ -35,26 +36,37 @@ class CustomKeysData {
   /// Parsed nodes from both sources, tagged `imported`.
   final List<Node> nodes;
 
+  /// User-made node collections (ТЗ: «свои подборки»).
+  final List<KeyBundle> bundles;
+
   bool get isEmpty => keys.isEmpty && subs.isEmpty;
 
   CustomKeysData copyWith({
     List<CustomKey>? keys,
     List<Subscription>? subs,
     List<Node>? nodes,
+    List<KeyBundle>? bundles,
   }) =>
       CustomKeysData(
         keys: keys ?? this.keys,
         subs: subs ?? this.subs,
         nodes: nodes ?? this.nodes,
+        bundles: bundles ?? this.bundles,
       );
 }
 
 /// Result of trying to add pasted/scanned text.
 class AddResult {
-  const AddResult(this.added, this.duplicates, this.failed);
+  const AddResult(this.added, this.duplicates, this.failed,
+      {this.addedNodeIds = const []});
   final int added;
   final int duplicates;
   final int failed;
+
+  /// Node ids for the keys that were actually added — used to offer "combine
+  /// into a bundle" right after a multi-key paste.
+  final List<String> addedNodeIds;
+
   bool get isNothing => added == 0 && duplicates == 0;
 }
 
@@ -73,6 +85,10 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
   bool _geoRunning = false;
   CustomKeysData? _geoPending;
 
+  // User bundles — kept as a field so _assemble() (called from several places)
+  // doesn't need a wider signature.
+  List<KeyBundle> _bundles = const [];
+
   @override
   Future<CustomKeysData> build() async {
     _repo = ref.watch(customKeysRepositoryProvider);
@@ -88,6 +104,7 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
     }
     final keys = await _repo.loadKeys();
     final subs = await _repo.loadSubs();
+    _bundles = await _repo.loadBundles();
     final data = _assemble(keys, subs);
     unawaited(_resolveGeo(data));
     return data;
@@ -114,7 +131,62 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
         add(n);
       }
     }
-    return CustomKeysData(keys: keys, subs: subs, nodes: nodes.values.toList());
+    return CustomKeysData(
+      keys: keys,
+      subs: subs,
+      nodes: nodes.values.toList(),
+      bundles: _bundles,
+    );
+  }
+
+  // ---- bundles --------------------------------------------------------
+
+  Future<void> _persistBundles() async {
+    await _repo.saveBundles(_bundles);
+    final cur = state.valueOrNull;
+    if (cur != null) state = AsyncData(cur.copyWith(bundles: _bundles));
+  }
+
+  static String _bundleId() =>
+      'b${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
+
+  /// Create a bundle from [nodeIds]; returns its id (empty if nothing to add).
+  Future<String> createBundle(String name, Iterable<String> nodeIds) async {
+    final ids = nodeIds.where((e) => e.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return '';
+    final b = KeyBundle(
+      id: _bundleId(),
+      name: name.trim().isEmpty ? 'Подборка' : name.trim(),
+      nodeIds: ids,
+      createdAt: DateTime.now(),
+    );
+    _bundles = [..._bundles, b];
+    await _persistBundles();
+    return b.id;
+  }
+
+  Future<void> renameBundle(String id, String name) async {
+    _bundles = [
+      for (final b in _bundles)
+        if (b.id == id) b.copyWith(name: name.trim()) else b,
+    ];
+    await _persistBundles();
+  }
+
+  Future<void> addToBundle(String id, Iterable<String> nodeIds) async {
+    _bundles = [
+      for (final b in _bundles)
+        if (b.id == id)
+          b.copyWith(nodeIds: {...b.nodeIds, ...nodeIds}.toList())
+        else
+          b,
+    ];
+    await _persistBundles();
+  }
+
+  Future<void> removeBundle(String id) async {
+    _bundles = _bundles.where((b) => b.id != id).toList();
+    await _persistBundles();
   }
 
   /// Resolve a country for every not-yet-known host in [data], then re-emit
@@ -181,7 +253,8 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
       uris.add(text.trim()); // a bare single URI with an unusual scheme spelling
     }
 
-    var added = 0, dupes = 0, failed = 0;
+    var dupes = 0, failed = 0;
+    final addedIds = <String>[];
     final keys = [...current.keys];
     for (final uri in uris) {
       if (existingRaw.contains(uri.trim())) {
@@ -199,10 +272,10 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
       }
       existingIds.add(node.id);
       keys.add(CustomKey(rawUri: uri.trim(), addedAt: DateTime.now()));
-      added++;
+      addedIds.add(node.id);
     }
-    if (added > 0) await _persistAndRefresh(keys, current.subs);
-    return AddResult(added, dupes, failed);
+    if (addedIds.isNotEmpty) await _persistAndRefresh(keys, current.subs);
+    return AddResult(addedIds.length, dupes, failed, addedNodeIds: addedIds);
   }
 
   Future<void> removeKey(String rawUri) async {

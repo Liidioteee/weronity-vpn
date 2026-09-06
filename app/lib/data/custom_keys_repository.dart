@@ -69,6 +69,50 @@ class Subscription {
       );
 }
 
+/// A user-made collection of nodes (ТЗ: «свои подборки»). Stores node ids;
+/// resolved against the live pool when selected. Auto-generated collections
+/// (`id` starts with `auto:`) are computed at runtime and never persisted.
+@immutable
+class KeyBundle {
+  const KeyBundle({
+    required this.id,
+    required this.name,
+    required this.nodeIds,
+    this.createdAt,
+  });
+
+  final String id;
+  final String name;
+  final List<String> nodeIds;
+  final DateTime? createdAt;
+
+  bool get isAuto => id.startsWith('auto:');
+
+  KeyBundle copyWith({String? name, List<String>? nodeIds}) => KeyBundle(
+        id: id,
+        name: name ?? this.name,
+        nodeIds: nodeIds ?? this.nodeIds,
+        createdAt: createdAt,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'nodes': nodeIds,
+        if (createdAt != null) 'created': createdAt!.toIso8601String(),
+      };
+
+  factory KeyBundle.fromJson(Map<String, dynamic> j) => KeyBundle(
+        id: (j['id'] ?? '').toString(),
+        name: (j['name'] ?? 'Подборка').toString(),
+        nodeIds: [
+          for (final n in (j['nodes'] as List<dynamic>? ?? const []))
+            n.toString(),
+        ],
+        createdAt: DateTime.tryParse(j['created']?.toString() ?? ''),
+      );
+}
+
 /// Persists custom keys and subscription URLs in the OS secure store.
 class CustomKeysRepository {
   CustomKeysRepository([FlutterSecureStorage? store])
@@ -77,12 +121,16 @@ class CustomKeysRepository {
   final FlutterSecureStorage _store;
   static const _kKeys = 'weronity.custom.keys.v1';
   static const _kSubs = 'weronity.custom.subs.v1';
+  static const _kBundles = 'weronity.custom.bundles.v1';
 
   Future<List<CustomKey>> loadKeys() => _load(_kKeys, CustomKey.fromJson);
   Future<List<Subscription>> loadSubs() => _load(_kSubs, Subscription.fromJson);
+  Future<List<KeyBundle>> loadBundles() => _load(_kBundles, KeyBundle.fromJson);
 
   Future<void> saveKeys(List<CustomKey> keys) => _save(_kKeys, keys.map((e) => e.toJson()));
   Future<void> saveSubs(List<Subscription> subs) => _save(_kSubs, subs.map((e) => e.toJson()));
+  Future<void> saveBundles(List<KeyBundle> b) =>
+      _save(_kBundles, b.map((e) => e.toJson()));
 
   Future<List<T>> _load<T>(String key, T Function(Map<String, dynamic>) from) async {
     final raw = await _readSafe(key);

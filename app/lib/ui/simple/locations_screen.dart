@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme/tokens.dart';
 import '../../core/connection_controller.dart';
+import '../../data/custom_keys_repository.dart';
 import '../../data/node_filter.dart';
 import '../../domain/country_names.dart';
+import '../../state/bundles.dart';
 import '../../state/providers.dart';
 import '../common/flag.dart';
 import '../common/format.dart';
@@ -100,6 +102,31 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
               ],
             ),
           ),
+          if (q.isEmpty) ...[
+            Consumer(builder: (context, ref, _) {
+              final bundles = ref.watch(allBundlesProvider);
+              if (bundles.isEmpty) return const SizedBox.shrink();
+              final nodes = ref.watch(nodesProvider);
+              return Padding(
+                padding: const EdgeInsets.only(top: WSpace.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Подборки',
+                        style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: WSpace.sm),
+                    for (final b in bundles)
+                      _BundleTile(
+                        bundle: b,
+                        liveCount: bundleLiveNodes(b, nodes).length,
+                        selected: sel.bundleId == b.id,
+                        onTap: () => _choose(Selection.bundle(b.id)),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: WSpace.lg),
           Text('Страны', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: WSpace.sm),
@@ -167,6 +194,66 @@ class _CountryTile extends StatelessWidget {
               ),
             ),
             _PingPill(ms: option.bestPingMs),
+            if (selected) ...[
+              const SizedBox(width: WSpace.sm),
+              const Icon(Icons.check_circle_rounded, color: WColors.violet),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BundleTile extends StatelessWidget {
+  const _BundleTile({
+    required this.bundle,
+    required this.liveCount,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final KeyBundle bundle;
+  final int liveCount;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = blockedServiceForBundle(bundle.id);
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: WSpace.sm),
+      child: SectionCard(
+        padding: const EdgeInsets.symmetric(
+            horizontal: WSpace.lg, vertical: WSpace.md),
+        onTap: liveCount == 0 ? null : onTap,
+        child: Row(
+          children: [
+            Icon(svc?.icon ?? Icons.playlist_play_rounded,
+                size: 28, color: WColors.violetBright),
+            const SizedBox(width: WSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(bundle.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    liveCount == 0
+                        ? 'нет живых узлов'
+                        : '$liveCount живых · ${bundle.nodeIds.length} всего'
+                            '${bundle.isAuto ? ' · авто' : ''}',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: muted),
+                  ),
+                ],
+              ),
+            ),
             if (selected) ...[
               const SizedBox(width: WSpace.sm),
               const Icon(Icons.check_circle_rounded, color: WColors.violet),

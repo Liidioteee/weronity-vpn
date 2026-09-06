@@ -112,12 +112,17 @@ class Settings {
         RuleBucket.block => blockRules,
       };
 
+  /// Keep the service URLs here in sync with `state/bundles.dart`
+  /// `kBlockedServices` — preflight collects a per-URL result and the
+  /// auto-bundles ("Лучшие для YouTube" …) match on it.
   static const defaultPreflightEndpoints = <String>[
-    'https://www.google.com/generate_204',
+    'https://www.google.com/generate_204', // generic connectivity
     'https://www.youtube.com/favicon.ico',
     'https://www.instagram.com/favicon.ico',
     'https://x.com/favicon.ico',
-    'https://www.bbc.com/favicon.ico',
+    'https://www.facebook.com/favicon.ico',
+    'https://discord.com/assets/favicon.ico',
+    'https://signal.org/favicon.ico',
   ];
 
   Settings copyWith({

@@ -103,6 +103,9 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
     if (r.added > 0) {
       _snack('Добавлено ключей: ${r.added}'
           '${r.duplicates > 0 ? ', пропущено дублей: ${r.duplicates}' : ''}');
+      if (r.added >= 2) {
+        await _offerBundle(r.addedNodeIds, 'Вставленная подборка');
+      }
     } else if (r.duplicates > 0) {
       _snack('Эти ключи уже добавлены');
     } else if (r.failed > 0) {
@@ -176,6 +179,74 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
         ],
       ),
     );
+  }
+
+  // ---- bundles ---------------------------------------------------------
+
+  /// Ask for a name, then create a bundle from [nodeIds]. No-op on cancel.
+  Future<void> _offerBundle(List<String> nodeIds, String defaultName) async {
+    if (nodeIds.length < 2) return;
+    final controller = TextEditingController(text: defaultName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Объединить ${nodeIds.length} ключа в подборку?'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Название подборки'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Не надо'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Создать'),
+          ),
+        ],
+      ),
+    );
+    if (name == null) return;
+    final id =
+        await ref.read(customKeysProvider.notifier).createBundle(name, nodeIds);
+    if (id.isNotEmpty) {
+      _snack('Подборка создана — она в списке локаций рядом со странами');
+    }
+  }
+
+  Future<void> _combineSelected() async {
+    final ids = <String>[
+      for (final raw in _selected)
+        if (parseProxyUri(raw)?.id case final String id) id,
+    ];
+    _exitSelection();
+    await _offerBundle(ids, 'Моя подборка');
+  }
+
+  Future<void> _renameBundle(String id, String current) async {
+    final controller = TextEditingController(text: current);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Переименовать подборку'),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      await ref.read(customKeysProvider.notifier).renameBundle(id, name);
+    }
   }
 
   // ---- multi-select ------------------------------------------------------
@@ -294,6 +365,11 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
                   onPressed: keys.isEmpty ? null : () => _selectAll(keys),
                 ),
                 IconButton(
+                  icon: const Icon(Icons.playlist_add_rounded),
+                  tooltip: 'Объединить в подборку',
+                  onPressed: _selected.length < 2 ? null : _combineSelected,
+                ),
+                IconButton(
                   icon: const Icon(Icons.delete_outline_rounded),
                   tooltip: 'Удалить выбранные',
                   onPressed: _selected.isEmpty ? null : _deleteSelected,
@@ -371,6 +447,18 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
                       ),
                       onDelete: () =>
                           ref.read(customKeysProvider.notifier).removeKey(key.rawUri),
+                    ),
+                  const SizedBox(height: WSpace.lg),
+                ],
+                if (data.bundles.isNotEmpty && !_selecting) ...[
+                  _SectionHeader(title: 'Подборки (${data.bundles.length})'),
+                  for (final b in data.bundles)
+                    _BundleTile(
+                      bundle: b,
+                      onRename: () => _renameBundle(b.id, b.name),
+                      onDelete: () => ref
+                          .read(customKeysProvider.notifier)
+                          .removeBundle(b.id),
                     ),
                   const SizedBox(height: WSpace.lg),
                 ],
@@ -548,6 +636,57 @@ class _CustomKeyTile extends StatelessWidget {
     if (onLongPress == null) return spaced;
     return GestureDetector(onLongPress: onLongPress, child: spaced);
   }
+}
+
+class _BundleTile extends StatelessWidget {
+  const _BundleTile({
+    required this.bundle,
+    required this.onRename,
+    required this.onDelete,
+  });
+
+  final KeyBundle bundle;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: WSpace.sm),
+        child: SectionCard(
+          padding: const EdgeInsets.fromLTRB(
+              WSpace.lg, WSpace.md, WSpace.sm, WSpace.md),
+          child: Row(
+            children: [
+              const Icon(Icons.playlist_play_rounded, size: 24),
+              const SizedBox(width: WSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(bundle.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text('${bundle.nodeIds.length} узлов · в списке локаций',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color:
+                                  Theme.of(context).colorScheme.onSurfaceVariant,
+                            )),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (v) => v == 'rename' ? onRename() : onDelete(),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'rename', child: Text('Переименовать')),
+                  PopupMenuItem(value: 'del', child: Text('Удалить')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _SubscriptionTile extends StatelessWidget {

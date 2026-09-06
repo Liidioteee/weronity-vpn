@@ -8,6 +8,7 @@ import '../../core/connection_controller.dart';
 import '../../core/singbox_bridge.dart';
 import '../../data/pool_repository.dart';
 import '../../domain/country_names.dart';
+import '../../state/bundles.dart';
 import '../../state/providers.dart';
 import '../common/flag.dart';
 import '../common/format.dart';
@@ -229,6 +230,21 @@ class _SelectionCard extends ConsumerWidget {
       title = '⚡ Авто: самый быстрый';
       subtitle = '$nodeCount активных узлов';
       leading = const Icon(Icons.bolt_rounded, color: WColors.violetBright, size: 26);
+    } else if (sel.bundleId != null) {
+      final b = ref
+          .watch(allBundlesProvider)
+          .where((x) => x.id == sel.bundleId!);
+      final all = ref.watch(nodesProvider);
+      title = b.isEmpty ? 'Подборка' : b.first.name;
+      subtitle = b.isEmpty
+          ? 'подборка не найдена'
+          : '${bundleLiveNodes(b.first, all).length} живых узлов';
+      leading = Icon(
+        blockedServiceForBundle(sel.bundleId!)?.icon ??
+            Icons.playlist_play_rounded,
+        color: WColors.violetBright,
+        size: 26,
+      );
     } else if (sel.countryCode != null) {
       final c = countries.where((c) => c.code == sel.countryCode);
       title = countryNameRu(sel.countryCode);
@@ -245,7 +261,7 @@ class _SelectionCard extends ConsumerWidget {
     }
 
     final key = ValueKey<String>(
-      '${sel.isAuto}|${sel.countryCode}|${sel.node?.id}|$subtitle',
+      '${sel.isAuto}|${sel.countryCode}|${sel.bundleId}|${sel.node?.id}|$subtitle',
     );
 
     return SectionCard(
@@ -264,7 +280,7 @@ class _SelectionCard extends ConsumerWidget {
             ),
             child: SizedBox(
               key: ValueKey<String>('lead|${sel.isAuto}|${sel.countryCode}|'
-                  '${sel.node?.id}'),
+                  '${sel.bundleId}|${sel.node?.id}'),
               width: 32,
               child: Center(child: leading),
             ),
