@@ -6,6 +6,13 @@ Thumbs.db
 .vscode/
 !.vscode/extensions.json
 
+# ── Local-only project notes (never publish to the public repo) ─
+# CLAUDE.md + docs/ are internal working notes; keep them out of the
+# published tree. Public docs live in README.md.
+/CLAUDE.md
+/docs/
+.claude/
+
 # ── Toolchains / SDKs (installed outside the repo) ──────────────
 /d/sdk/
 *.zip.download
