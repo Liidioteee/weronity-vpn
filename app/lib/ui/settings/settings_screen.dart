@@ -1,4 +1,4 @@
-import 'dart:io' show exit;
+import 'dart:io' show Platform, exit;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -145,6 +145,54 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          if (Platform.isWindows || Platform.isLinux)
+            _Group(
+              title: 'Система',
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(WSpace.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('При закрытии окна',
+                          style: Theme.of(context).textTheme.bodyLarge),
+                      const SizedBox(height: WSpace.xs),
+                      Text(
+                        'В трее приложение продолжает работать в фоне.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color:
+                                  Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                      const SizedBox(height: WSpace.md),
+                      SegmentedButton<WindowCloseAction>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(
+                            value: WindowCloseAction.ask,
+                            label: Text('Спрашивать'),
+                            icon: Icon(Icons.help_outline_rounded, size: 18),
+                          ),
+                          ButtonSegment(
+                            value: WindowCloseAction.tray,
+                            label: Text('В трей'),
+                            icon: Icon(Icons.minimize_rounded, size: 18),
+                          ),
+                          ButtonSegment(
+                            value: WindowCloseAction.quit,
+                            label: Text('Выходить'),
+                            icon: Icon(Icons.close_rounded, size: 18),
+                          ),
+                        ],
+                        selected: {s.closeAction},
+                        onSelectionChanged: (v) =>
+                            notifier.setCloseAction(v.first),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           _Group(
             title: 'Маршрутизация',
             children: [

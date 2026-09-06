@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/desktop/tray_host.dart';
 import '../state/providers.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
@@ -20,6 +21,7 @@ class WeronityApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) => TrayHost(child: child ?? const SizedBox()),
     );
   }
 }

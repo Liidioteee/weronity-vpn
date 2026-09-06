@@ -66,6 +66,8 @@ class SettingsNotifier extends Notifier<Settings> {
       _mutate(state.copyWith(connectionMode: v));
   Future<void> setProxyPort(int v) =>
       _mutate(state.copyWith(proxyPort: v.clamp(1024, 65535)));
+  Future<void> setCloseAction(WindowCloseAction v) =>
+      _mutate(state.copyWith(closeAction: v));
 }
 
 final settingsProvider =

@@ -32,6 +32,25 @@ enum ConnectionMode {
       v == 'vpn' || v == 1 ? ConnectionMode.vpn : ConnectionMode.proxy;
 }
 
+/// What the window's close button does on desktop.
+enum WindowCloseAction {
+  ask,
+  tray,
+  quit;
+
+  String get label => switch (this) {
+        WindowCloseAction.ask => 'Спрашивать',
+        WindowCloseAction.tray => 'В трей',
+        WindowCloseAction.quit => 'Выходить',
+      };
+
+  static WindowCloseAction parse(Object? v) => switch ('$v') {
+        'tray' || '1' => WindowCloseAction.tray,
+        'quit' || '2' => WindowCloseAction.quit,
+        _ => WindowCloseAction.ask,
+      };
+}
+
 /// Custom routing buckets edited in Pro mode; fed to the sing-box route config
 /// in Phase 4.
 enum RuleBucket {
@@ -69,6 +88,7 @@ class Settings {
     this.blockRules = const [],
     this.connectionMode = ConnectionMode.proxy,
     this.proxyPort = 55555,
+    this.closeAction = WindowCloseAction.ask,
   });
 
   final bool proMode;
@@ -84,6 +104,7 @@ class Settings {
   final List<String> blockRules;
   final ConnectionMode connectionMode;
   final int proxyPort;
+  final WindowCloseAction closeAction;
 
   List<String> rules(RuleBucket bucket) => switch (bucket) {
         RuleBucket.direct => directRules,
@@ -113,6 +134,7 @@ class Settings {
     List<String>? blockRules,
     ConnectionMode? connectionMode,
     int? proxyPort,
+    WindowCloseAction? closeAction,
   }) =>
       Settings(
         proMode: proMode ?? this.proMode,
@@ -131,6 +153,7 @@ class Settings {
         blockRules: blockRules ?? this.blockRules,
         connectionMode: connectionMode ?? this.connectionMode,
         proxyPort: proxyPort ?? this.proxyPort,
+        closeAction: closeAction ?? this.closeAction,
       );
 
   Settings withRules(RuleBucket bucket, List<String> value) => switch (bucket) {
@@ -168,6 +191,7 @@ class SettingsRepository {
         connectionMode:
             ConnectionMode.parse(_box.get('connectionMode', defaultValue: 0)),
         proxyPort: (_box.get('proxyPort', defaultValue: 55555) as num).toInt(),
+        closeAction: WindowCloseAction.parse(_box.get('closeAction')),
       );
 
   Future<void> save(Settings s) async {
@@ -185,6 +209,7 @@ class SettingsRepository {
       'blockRules': s.blockRules,
       'connectionMode': s.connectionMode.index,
       'proxyPort': s.proxyPort,
+      'closeAction': s.closeAction.name,
     });
   }
 }

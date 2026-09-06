@@ -9,7 +9,12 @@ import '../ui/simple/home_screen.dart';
 import '../ui/simple/locations_screen.dart';
 import 'theme/tokens.dart';
 
+/// Root navigator — also used by non-widget code (the tray host) to show
+/// dialogs without a build context.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final router = GoRouter(
+  navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
     StatefulShellRoute(
