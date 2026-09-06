@@ -229,7 +229,12 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
   Future<void> test(Node node) => testRaw(node.id, node.outbound);
 
   /// The core probe. [outbound] is the sanitised-on-the-Go-side node config.
-  Future<void> testRaw(String id, Map<String, dynamic> outbound) async {
+  /// [timeoutMs] overrides the user's setting — used by the fast burst scan.
+  Future<void> testRaw(
+    String id,
+    Map<String, dynamic> outbound, {
+    int? timeoutMs,
+  }) async {
     if (state[id]?.verdict == ProbeVerdict.testing) return;
     state = {...state, id: NodeProbe.testing};
 
@@ -240,7 +245,7 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
       summary = await core.testNode(
         outbound,
         targets: s.preflightEndpoints,
-        timeoutMs: s.checkTimeoutMs,
+        timeoutMs: timeoutMs ?? s.checkTimeoutMs,
       );
     } on Object catch (e) {
       summary = {'err': '$e'};
@@ -264,6 +269,48 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
     }
 
     await Future.wait([for (var i = 0; i < n; i++) worker()]);
+  }
+
+  /// Race through [candidateIds] with high concurrency and a short timeout;
+  /// return the id of the **first** node that comes back good, or null if
+  /// [deadline] passes first. Used to find a working node fast when everything
+  /// blocked (most of the RU pool) means a serial scan would take forever.
+  Future<String?> burstFindGood(
+    List<String> candidateIds,
+    Map<String, Map<String, dynamic>> outboundById, {
+    int timeoutMs = 2500,
+    Duration deadline = const Duration(seconds: 25),
+  }) async {
+    // An already-known fresh-good candidate wins immediately.
+    for (final id in candidateIds) {
+      final p = state[id];
+      if (p != null &&
+          p.isGood &&
+          (p.at?.isAfter(DateTime.now().subtract(const Duration(minutes: 5))) ??
+              false)) {
+        return id;
+      }
+    }
+
+    final n = ref.read(settingsProvider).checkConcurrency.clamp(1, 20);
+    final started = DateTime.now();
+    final queue = [...candidateIds];
+    String? found;
+
+    Future<void> worker() async {
+      while (found == null &&
+          queue.isNotEmpty &&
+          DateTime.now().difference(started) < deadline) {
+        final id = queue.removeAt(0);
+        final ob = outboundById[id];
+        if (ob == null) continue;
+        await testRaw(id, ob, timeoutMs: timeoutMs);
+        if (found == null && (state[id]?.isGood ?? false)) found = id;
+      }
+    }
+
+    await Future.wait([for (var i = 0; i < n; i++) worker()]);
+    return found;
   }
 
   void clear() {

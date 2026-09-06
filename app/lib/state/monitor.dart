@@ -10,53 +10,71 @@ import '../domain/node.dart';
 import 'preflight.dart';
 import 'providers.dart';
 
-/// Always-on, deliberately gentle background watchdog. While `Settings.autoCheck`
-/// is on it:
-///   * re-probes the **active** node every tick and, after 3 misses, fails over
-///     to the best live alternative (same country first) if `autoSwitch` is on;
-///   * otherwise refreshes one *stale* node per tick — prioritising the current
-///     selection's country and recommended nodes — so auto-bundles and the
-///     backup list stay fresh without a manual "Проверить видимые".
+/// Always-on background watchdog (while `Settings.autoCheck` is on).
 ///
-/// One probe per ~12 s → ~5 nodes/min, a full 130-node pool covered in ~25 min.
-/// Kept alive by a `ref.watch` at the app root.
+/// **Connected:** every ~7 s it makes a real request through the live tunnel.
+/// One miss → one quick retry (~1.5 s). Still no answer → immediate failover.
+/// A node that just became active and can't do even one request is switched
+/// away with no retry. Failover finds a replacement with a *fast burst scan*
+/// (high concurrency, short timeout) and jumps to the first node that answers,
+/// same country first — most of the RU pool is blocked, so a serial search
+/// would take many minutes.
+///
+/// **Idle:** refreshes a few stale nodes per tick (selection's country and
+/// recommended nodes first) so auto-bundles and the backup list stay current
+/// without a manual "Проверить видимые" and without Pro mode.
 final monitorProvider = Provider<void>((ref) {
   final enabled = ref.watch(settingsProvider.select((s) => s.autoCheck));
   if (!enabled) return;
   if (!ref.watch(nativeCoreProvider).isAvailable) return;
 
-  final fails = <String, int>{};
   var rr = 0;
   var busy = false;
+  var failingOver = false;
+  String? lastActiveId;
 
   Future<void> tick() async {
-    if (busy) return;
+    if (busy || failingOver) return;
     busy = true;
     try {
       final pf = ref.read(preflightProvider.notifier);
-      if (pf.anyTesting) return; // stay out of the way of a manual sweep
-
       final nodes = ref.read(nodesProvider);
       if (nodes.isEmpty) return;
       final controller = ref.read(connectionControllerProvider);
 
-      // --- 1. the live connection -------------------------------------
+      // --- 1. the live connection ------------------------------------
       final active = controller.activeNode;
       if (controller.isActive && active != null) {
-        final ok = await _tunnelAlive(controller);
-        fails[active.id] = ok ? 0 : (fails[active.id] ?? 0) + 1;
-        if (!ok) {
-          debugPrint('monitor: active node ${active.id} missed '
-              '${fails[active.id]}/3');
+        final justConnected = active.id != lastActiveId;
+        lastActiveId = active.id;
+        // A liveness ping is short — cap the check at ~5 s regardless of the
+        // (probe-oriented) checkTimeoutMs setting.
+        final pingTimeout = Duration(
+          milliseconds:
+              ref.read(settingsProvider).checkTimeoutMs.clamp(2000, 6000),
+        );
+
+        var ok = await _tunnelAlive(controller, pingTimeout);
+        if (!ok && !justConnected) {
+          await Future<void>.delayed(const Duration(milliseconds: 1500));
+          ok = await _tunnelAlive(controller, pingTimeout);
         }
-        if ((fails[active.id] ?? 0) >= 3) {
-          fails[active.id] = 0;
-          await _failover(ref, active);
+        if (!ok) {
+          failingOver = true;
+          try {
+            await _failover(ref, active);
+          } finally {
+            failingOver = false;
+            lastActiveId = ref.read(connectionControllerProvider).activeNode?.id;
+          }
         }
         return; // one action per tick
       }
+      lastActiveId = null;
 
-      // --- 2. keep backups vetted -----------------------------------
+      if (pf.anyTesting) return; // a manual sweep is running — don't pile on
+
+      // --- 2. keep backups vetted ---------------------------------
       final sel = controller.selection;
       final ordered = <String>{
         for (final n in nodes)
@@ -65,12 +83,15 @@ final monitorProvider = Provider<void>((ref) {
           if (n.recommended) n.id,
         for (final n in nodes) n.id,
       }.toList();
-      final stale =
-          pf.staleAmong(ordered, const Duration(minutes: 8)).toList();
+      final stale = pf.staleAmong(ordered, const Duration(minutes: 8)).toList();
       if (stale.isEmpty) return;
-      final id = stale[rr++ % stale.length];
-      final node = nodes.firstWhere((n) => n.id == id, orElse: () => nodes.first);
-      await pf.testRaw(node.id, node.outbound);
+      final byId = {for (final n in nodes) n.id: n};
+      // 2 at a time — still light in the background, full pool in ~13 min
+      final batch = <Node>{
+        for (var i = 0; i < 2 && stale.isNotEmpty; i++)
+          if (byId[stale[(rr++) % stale.length]] case final Node n) n,
+      }.toList();
+      await pf.testAll(batch, concurrency: 2);
     } on Object catch (e) {
       debugPrint('monitor tick failed: $e');
     } finally {
@@ -78,8 +99,8 @@ final monitorProvider = Provider<void>((ref) {
     }
   }
 
-  final periodic = Timer.periodic(const Duration(seconds: 12), (_) => tick());
-  final kick = Timer(const Duration(seconds: 5), tick);
+  final periodic = Timer.periodic(const Duration(seconds: 7), (_) => tick());
+  final kick = Timer(const Duration(seconds: 3), tick);
   ref.onDispose(() {
     periodic.cancel();
     kick.cancel();
@@ -88,9 +109,8 @@ final monitorProvider = Provider<void>((ref) {
 
 /// A real request through the current tunnel (HTTP-CONNECT via the local mixed
 /// inbound in proxy mode; direct in VPN mode — everything is tunnelled anyway).
-Future<bool> _tunnelAlive(ConnectionEngine controller) async {
-  final client = HttpClient()
-    ..connectionTimeout = const Duration(seconds: 6);
+Future<bool> _tunnelAlive(ConnectionEngine controller, Duration timeout) async {
+  final client = HttpClient()..connectionTimeout = timeout;
   if (controller is SingBoxBridge && !controller.isVpn) {
     final ep = controller.proxyEndpoint; // "127.0.0.1:<port>"
     if (ep == null) {
@@ -102,8 +122,8 @@ Future<bool> _tunnelAlive(ConnectionEngine controller) async {
   try {
     final req = await client
         .getUrl(Uri.parse('https://www.gstatic.com/generate_204'))
-        .timeout(const Duration(seconds: 8));
-    final resp = await req.close().timeout(const Duration(seconds: 8));
+        .timeout(timeout);
+    final resp = await req.close().timeout(timeout);
     await resp.drain<void>();
     return resp.statusCode >= 200 && resp.statusCode < 400;
   } on Object {
@@ -126,20 +146,42 @@ Future<void> _failover(Ref ref, Node dead) async {
   }
 
   final nodes = ref.read(nodesProvider);
+  final byId = {for (final n in nodes) n.id: n};
   final probes = ref.read(preflightProvider);
-  Node? pick = _bestOf(
-    nodes.where((n) =>
-        n.id != dead.id && n.health.alive && n.countryCode == dead.countryCode),
-    probes,
-  );
-  pick ??= _bestOf(
-    nodes.where((n) => n.id != dead.id && n.health.alive),
-    probes,
-  );
-  pick ??= resolve(controller.selection);
+
+  // Candidate order: same country → recommended → the rest, minus the dead one.
+  final candidates = <String>{
+    for (final n in nodes)
+      if (n.id != dead.id && n.health.alive && n.countryCode == dead.countryCode)
+        n.id,
+    for (final n in nodes)
+      if (n.id != dead.id && n.health.alive && n.recommended) n.id,
+    for (final n in nodes)
+      if (n.id != dead.id && n.health.alive) n.id,
+  }.toList();
+
+  // 1. an already-known good backup?
+  Node? pick = _firstGood(candidates, byId, probes);
+
+  // 2. otherwise race the pool with a fast burst and take the first good one.
+  if (pick == null) {
+    log.add('warn', 'monitor',
+        'узел ${_name(dead)} не отвечает — ищу рабочий…');
+    final foundId = await ref.read(preflightProvider.notifier).burstFindGood(
+          candidates,
+          {for (final id in candidates) id: byId[id]!.outbound},
+          timeoutMs: (settings.checkTimeoutMs * 0.6).round().clamp(1500, 4000),
+        );
+    pick = foundId == null ? null : byId[foundId];
+  }
+
+  // 3. last resort — best by ping.
+  pick ??= _firstGood(candidates, byId, ref.read(preflightProvider)) ??
+      (candidates.isEmpty ? null : byId[candidates.first]);
+
   if (pick == null || pick.id == dead.id) {
     log.add('error', 'monitor',
-        'узел ${_name(dead)} не отвечает — замены не нашлось');
+        'узел ${_name(dead)} не отвечает — рабочей замены не нашлось');
     return;
   }
 
@@ -149,17 +191,23 @@ Future<void> _failover(Ref ref, Node dead) async {
   if (!controller.isActive) await controller.connect(resolve);
 }
 
-Node? _bestOf(Iterable<Node> cands, Map<String, NodeProbe> probes) {
-  final list = cands.toList();
-  if (list.isEmpty) return null;
-  int score(Node n) {
-    final p = probes[n.id];
-    if (p != null && p.isGood) return p.bestMs ?? 900;
-    return 100000 + (n.health.pingMs ?? 9999);
+Node? _firstGood(
+  List<String> ids,
+  Map<String, Node> byId,
+  Map<String, NodeProbe> probes,
+) {
+  String? best;
+  var bestMs = 1 << 30;
+  for (final id in ids) {
+    final p = probes[id];
+    if (p == null || !p.isGood) continue;
+    final ms = p.bestMs ?? 900;
+    if (ms < bestMs) {
+      bestMs = ms;
+      best = id;
+    }
   }
-
-  list.sort((a, b) => score(a).compareTo(score(b)));
-  return list.first;
+  return best == null ? null : byId[best];
 }
 
 String _name(Node n) => n.tag.isEmpty ? n.endpoint.host : n.tag;

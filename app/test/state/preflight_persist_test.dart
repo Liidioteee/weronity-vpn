@@ -56,6 +56,32 @@ void main() {
     expect(state['n2']?.verdict, ProbeVerdict.dead);
   });
 
+  test('burstFindGood returns an already-known fresh good node immediately', () async {
+    final box = _FakeBox();
+    final c = ProviderContainer(
+      overrides: [sessionBoxProvider.overrideWithValue(box)],
+    );
+    addTearDown(c.dispose);
+    final n = c.read(preflightProvider.notifier);
+    n.debugPut(
+      'n2',
+      NodeProbe(
+          verdict: ProbeVerdict.works, bestMs: 150, at: DateTime.now()),
+    );
+    n.debugPut(
+      'n1',
+      NodeProbe(
+          verdict: ProbeVerdict.works, bestMs: 900, at: DateTime.now()),
+    );
+
+    final id = await n.burstFindGood(
+      ['n1', 'n2', 'n3'],
+      const {'n1': {}, 'n2': {}, 'n3': {}},
+    );
+    // first fresh-good in the candidate order wins (n1 before n2 here)
+    expect(id, 'n1');
+  });
+
   test('staleAmong flags never-checked and old ids', () {
     final box = _FakeBox();
     final c = ProviderContainer(
