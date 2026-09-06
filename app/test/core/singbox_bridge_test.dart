@@ -48,16 +48,17 @@ void main() {
     expect(b.proxyEndpoint, isNull);
   });
 
-  test('VPN mode is refused with a helpful message', () async {
-    final log = <String>[];
-    final b = _bridge(mode: ConnectionMode.vpn, log: log);
+  test('VPN mode attempts to start; without the core it fails with an '
+      'admin-rights hint', () async {
+    final b = _bridge(mode: ConnectionMode.vpn);
     addTearDown(b.dispose);
+    if (b.core.isAvailable) return; // real core would try to create a TUN
 
+    expect(b.isVpn, isTrue);
     await b.connect((_) => _n('a'));
     expect(b.status, ConnectionStatus.error);
-    expect(b.lastError, contains('VPN'));
+    expect(b.lastError, contains('администратора'));
     expect(b.isActive, isFalse);
-    expect(log.join('\n'), contains('VPN'));
   });
 
   test('proxy connect fails gracefully when the core is unavailable', () async {

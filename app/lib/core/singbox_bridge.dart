@@ -10,10 +10,11 @@ import 'native/native_core.dart';
 
 /// Real [ConnectionEngine] backed by the sing-box FFI core.
 ///
-/// Phase 3.2: proxy mode only (a local SOCKS/HTTP proxy on `127.0.0.1:<port>`).
+/// Proxy mode: a local SOCKS/HTTP proxy on `127.0.0.1:<port>`.
+/// VPN mode (Phase 3.3): a `tun` device with `auto_route` — the whole system's
+/// traffic goes through the node; needs admin rights + `wintun.dll` on Windows.
 /// The `select` hot-switch is a quick stop/start — a brief real drop — until a
-/// sing-box selector group lands. VPN/TUN mode is refused here and surfaces a
-/// message; it arrives in Phase 3.3.
+/// sing-box selector group lands (3.3b).
 class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
   SingBoxBridge({
     required this.core,
@@ -67,18 +68,13 @@ class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
   /// the poll — cheap to read every build).
   String? get proxyEndpoint => isActive ? _listen : null;
 
+  /// Whether the active/selected transport is the system-wide TUN.
+  bool get isVpn => modeOf() == ConnectionMode.vpn;
+
   @override
   Future<void> connect(Node? Function(Selection) resolve) async {
     if (isActive) return;
     _lastError = null;
-
-    if (modeOf() == ConnectionMode.vpn) {
-      _status = ConnectionStatus.error;
-      _lastError = 'Режим VPN (TUN) появится в Фазе 3.3 — выберите «Прокси».';
-      _log('warn', 'core', _lastError!);
-      notifyListeners();
-      return;
-    }
 
     _status = ConnectionStatus.connecting;
     notifyListeners();
@@ -91,14 +87,27 @@ class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
       return;
     }
 
-    final rc = core.startNode(node.outbound, listenPort: portOf());
-    // let the core surface any startup error into the event stream
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    final mode = modeOf();
+    final rc = core.startNode(
+      node.outbound,
+      mode: mode.wire,
+      listenPort: portOf(),
+      selfTest: mode == ConnectionMode.proxy,
+    );
+    // let the core surface any startup error into the event stream. The TUN
+    // path (Wintun adapter + route table) can take a moment longer.
+    await Future<void>.delayed(Duration(
+      milliseconds: mode == ConnectionMode.vpn ? 400 : 150,
+    ));
     _drainLogs();
 
     if (rc != 0 || !core.isRunning()) {
       _status = ConnectionStatus.error;
-      _lastError = _lastLogError() ?? 'Ядро не запустилось (код $rc)';
+      _lastError = _lastLogError() ??
+          (mode == ConnectionMode.vpn
+              ? 'Не удалось поднять VPN — запустите приложение от имени '
+                  'администратора'
+              : 'Ядро не запустилось (код $rc)');
       notifyListeners();
       return;
     }
@@ -148,8 +157,16 @@ class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
     notifyListeners();
 
     if (core.isRunning()) core.stop();
-    final rc = core.startNode(next.outbound, listenPort: portOf());
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    final mode = modeOf();
+    final rc = core.startNode(
+      next.outbound,
+      mode: mode.wire,
+      listenPort: portOf(),
+      selfTest: mode == ConnectionMode.proxy,
+    );
+    await Future<void>.delayed(Duration(
+      milliseconds: mode == ConnectionMode.vpn ? 400 : 150,
+    ));
     _drainLogs();
     _switching = false;
 

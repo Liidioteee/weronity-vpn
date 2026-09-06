@@ -96,9 +96,15 @@ var (
 
 func engineRunning() bool { return running.Load() }
 
-// startEngine sanitises the node outbound, generates a loopback-only sing-box
-// config, boots the engine and — in proxy mode — a counting relay on the public
-// port. It then runs a one-shot connectivity probe and a periodic latency probe.
+// startEngine sanitises the node outbound, generates a hardened sing-box config
+// for the requested mode, and boots the engine.
+//
+//   proxy mode: one loopback mixed inbound + a counting relay on the public port
+//               + a one-shot connectivity probe and a periodic latency probe.
+//   vpn mode:   one `tun` inbound with auto_route — the whole system's traffic
+//               goes through the node. Needs OS privileges (admin on Windows,
+//               CAP_NET_ADMIN / root on Linux) and, on Windows, wintun.dll next
+//               to the executable. No relay, no probes (there is no local port).
 func startEngine(configJSON string) (err error) {
 	engMu.Lock()
 	defer engMu.Unlock()
@@ -117,12 +123,7 @@ func startEngine(configJSON string) (err error) {
 		emit("error", "core", "invalid start config: "+e.Error())
 		return errors.New("invalid start config json")
 	}
-
-	if sc.mode() == "vpn" {
-		msg := "режим VPN (TUN) появится в Фазе 3.3 — пока доступен только режим прокси"
-		emit("error", "core", msg)
-		return errors.New("vpn/tun mode not implemented yet")
-	}
+	vpn := sc.mode() == "vpn"
 
 	san, e := sanitizeOutbound(sc.Outbound)
 	if e != nil {
@@ -133,16 +134,20 @@ func startEngine(configJSON string) (err error) {
 		emit("warn", "core", w)
 	}
 
-	// Internal sing-box inbound port (loopback, ephemeral by default).
-	inner := sc.SocksPort
-	if inner == 0 {
-		inner, e = freeLoopbackPort()
-		if e != nil {
-			return e
+	var raw []byte
+	var inner int
+	if vpn {
+		raw, e = buildTunConfig(san.Outbound, sc.logLevel())
+	} else {
+		inner = sc.SocksPort
+		if inner == 0 {
+			inner, e = freeLoopbackPort()
+			if e != nil {
+				return e
+			}
 		}
+		raw, e = buildSingBoxConfig(san.Outbound, inner, sc.logLevel())
 	}
-
-	raw, e := buildSingBoxConfig(san.Outbound, inner, sc.logLevel())
 	if e != nil {
 		emit("error", "core", "config generation failed: "+e.Error())
 		return e
@@ -170,32 +175,41 @@ func startEngine(configJSON string) (err error) {
 	if e = b.Start(); e != nil {
 		_ = b.Close()
 		cancel()
-		emit("error", "core", "engine start failed: "+e.Error())
+		if vpn {
+			emit("error", "core", "не удалось поднять VPN (TUN): нужны права администратора"+
+				" и wintun.dll рядом с приложением — "+e.Error())
+		} else {
+			emit("error", "core", "engine start failed: "+e.Error())
+		}
 		return e
 	}
 
-	// Counting relay on the public proxy port, in front of the sing-box inbound.
-	upstream := fmt.Sprintf("127.0.0.1:%d", inner)
-	wantPort := sc.listenPort()
-	rl, e := startCountingRelay(fmt.Sprintf("127.0.0.1:%d", wantPort), upstream)
-	if e != nil {
-		emit("warn", "core",
-			fmt.Sprintf("порт %d занят (%s) — беру свободный", wantPort, e.Error()))
-		rl, e = startCountingRelay("127.0.0.1:0", upstream)
+	var rl *countingRelay
+	if !vpn {
+		// Counting relay on the public proxy port, in front of the sing-box inbound.
+		upstream := fmt.Sprintf("127.0.0.1:%d", inner)
+		wantPort := sc.listenPort()
+		rl, e = startCountingRelay(fmt.Sprintf("127.0.0.1:%d", wantPort), upstream)
+		if e != nil {
+			emit("warn", "core",
+				fmt.Sprintf("порт %d занят (%s) — беру свободный", wantPort, e.Error()))
+			rl, e = startCountingRelay("127.0.0.1:0", upstream)
+		}
+		if e != nil {
+			_ = b.Close()
+			cancel()
+			emit("error", "core", "не удалось открыть локальный порт: "+e.Error())
+			return e
+		}
+		_, portStr, _ := net.SplitHostPort(rl.addr())
+		publicPort, _ = strconv.Atoi(portStr)
+	} else {
+		publicPort = 0
 	}
-	if e != nil {
-		_ = b.Close()
-		cancel()
-		emit("error", "core", "не удалось открыть локальный порт: "+e.Error())
-		return e
-	}
-	_, portStr, _ := net.SplitHostPort(rl.addr())
-	publicPort, _ = strconv.Atoi(portStr)
 
 	instance = b
 	cancelBox = cancel
 	relay = rl
-	engineMode = "proxy"
 	socksPort = inner
 	startedAt = time.Now()
 	pingMs.Store(0)
@@ -205,8 +219,14 @@ func startEngine(configJSON string) (err error) {
 	selfTest = selfTestResult{}
 	selfMu.Unlock()
 
-	emit("info", "core", fmt.Sprintf("прокси поднят — 127.0.0.1:%d (ядро на :%d)", publicPort, inner))
+	if vpn {
+		engineMode = "vpn"
+		emit("info", "core", "VPN (TUN) поднят — весь трафик системы идёт через узел")
+		return nil
+	}
 
+	engineMode = "proxy"
+	emit("info", "core", fmt.Sprintf("прокси поднят — 127.0.0.1:%d (ядро на :%d)", publicPort, inner))
 	stopPing = make(chan struct{})
 	go pingLoop(publicPort, stopPing)
 	if sc.selfTestEnabled() {
@@ -252,10 +272,17 @@ func statsJSON() string {
 	}
 	upBps, dnBps := sampleRate(up, down)
 
+	// In VPN mode there is no local port and no relay — byte counters for the
+	// tun inbound arrive in 3.3b (clash-api traffic stats).
+	listen := fmt.Sprintf("127.0.0.1:%d", publicPort)
+	if engineMode == "vpn" {
+		listen = "tun"
+	}
+
 	snap := map[string]any{
 		"running":    running.Load(),
 		"mode":       engineMode,
-		"listen":     fmt.Sprintf("127.0.0.1:%d", publicPort),
+		"listen":     listen,
 		"socks_port": publicPort,
 		"up_bytes":   up,
 		"down_bytes": down,

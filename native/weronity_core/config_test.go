@@ -210,20 +210,91 @@ func TestBuildConfigIsLoopbackOnlyAndApiFree(t *testing.T) {
 	}
 }
 
+func TestBuildTunConfigShape(t *testing.T) {
+	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := buildTunConfig(san.Outbound, "info")
+	if err != nil {
+		t.Fatalf("buildTunConfig: %v", err)
+	}
+
+	var cfg map[string]any
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := cfg["experimental"]; present {
+		t.Error("vpn config must not contain an experimental block")
+	}
+	ins := cfg["inbounds"].([]any)
+	if len(ins) != 1 {
+		t.Fatalf("want 1 inbound, got %d", len(ins))
+	}
+	in := ins[0].(map[string]any)
+	if in["type"] != "tun" {
+		t.Errorf("inbound type = %v, want tun", in["type"])
+	}
+	if _, hasListen := in["listen"]; hasListen {
+		t.Error("tun inbound must not have a listen address")
+	}
+	if in["auto_route"] != true {
+		t.Error("tun inbound must set auto_route")
+	}
+	if in["stack"] != "gvisor" {
+		t.Errorf("tun stack = %v, want gvisor", in["stack"])
+	}
+	obs := cfg["outbounds"].([]any)
+	if len(obs) != 2 {
+		t.Fatalf("want 2 outbounds, got %d", len(obs))
+	}
+	if !strings.Contains(string(raw), `"final":"proxy"`) {
+		t.Error("route.final should be proxy")
+	}
+	if !strings.Contains(string(raw), `"hijack-dns"`) {
+		t.Error("route should hijack DNS in vpn mode")
+	}
+}
+
 func TestAssertConfigSafeCatchesTampering(t *testing.T) {
 	good := `{"inbounds":[{"type":"mixed","listen":"127.0.0.1","listen_port":1}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`
-	if err := assertConfigSafe([]byte(good)); err != nil {
-		t.Fatalf("good config flagged: %v", err)
+	if err := assertConfigSafe([]byte(good), "proxy"); err != nil {
+		t.Fatalf("good proxy config flagged: %v", err)
 	}
-	bad := []string{
+	goodTun := `{"inbounds":[{"type":"tun","tag":"tun-in","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`
+	if err := assertConfigSafe([]byte(goodTun), "vpn"); err != nil {
+		t.Fatalf("good vpn config flagged: %v", err)
+	}
+
+	badProxy := []string{
 		`{"inbounds":[{"type":"mixed","listen":"0.0.0.0","listen_port":1}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
 		`{"experimental":{"clash_api":{}},"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
 		`{"inbounds":[{"listen":"127.0.0.1"},{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
 		`{"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"}]}`,
+		// a tun inbound must not pass as proxy mode
+		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
 	}
-	for i, b := range bad {
-		if err := assertConfigSafe([]byte(b)); err == nil {
-			t.Errorf("tampered config #%d passed assertConfigSafe", i)
+	for i, b := range badProxy {
+		if err := assertConfigSafe([]byte(b), "proxy"); err == nil {
+			t.Errorf("tampered proxy config #%d passed", i)
+		}
+	}
+
+	badTun := []string{
+		// tun with a listen address (leak)
+		`{"inbounds":[{"type":"tun","listen":"0.0.0.0","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		// not a tun inbound
+		`{"inbounds":[{"type":"mixed","listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		// auto_route missing
+		`{"inbounds":[{"type":"tun"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		// experimental block
+		`{"experimental":{"v2ray_api":{}},"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		// missing direct outbound
+		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"}]}`,
+	}
+	for i, b := range badTun {
+		if err := assertConfigSafe([]byte(b), "vpn"); err == nil {
+			t.Errorf("tampered vpn config #%d passed", i)
 		}
 	}
 }

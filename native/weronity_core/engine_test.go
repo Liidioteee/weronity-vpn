@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -34,14 +35,50 @@ func TestStartRejectsHostileOutboundType(t *testing.T) {
 	}
 }
 
-func TestVpnModeIsRejectedForNow(t *testing.T) {
+// vpn mode must still reject a hostile outbound *before* any tun device is
+// created (sanitize happens first). Safe to run anywhere — never reaches b.Start.
+func TestVpnModeStillSanitizesOutbound(t *testing.T) {
 	t.Cleanup(stopEngine)
-	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.9","server_port":443,"password":"x"},"mode":"vpn","self_test":false}`
+	cfg := `{"outbound":{"type":"socks","server":"1.1.1.1","server_port":1080},"mode":"vpn","self_test":false}`
 	if err := startEngine(cfg); err == nil {
-		t.Fatal("vpn/tun mode should be rejected until Phase 3.3")
+		t.Fatal("a 'socks' outbound must be rejected in vpn mode too")
 	}
 	if engineRunning() {
 		t.Fatal("engine must not be running")
+	}
+}
+
+// Full VPN lifecycle — GATED. Running it creates a real TUN device and rewrites
+// the host route table (auto_route), which on a dev/CI machine cuts the box off
+// the network. Only runs with WRN_ALLOW_TUN=1 on a machine where that is safe.
+func TestStartVpnModeLifecycle(t *testing.T) {
+	if os.Getenv("WRN_ALLOW_TUN") != "1" {
+		t.Skip("set WRN_ALLOW_TUN=1 to run the real TUN lifecycle (reroutes all host traffic)")
+	}
+	t.Cleanup(stopEngine)
+	cfg := `{
+		"outbound": {"type":"trojan","server":"192.0.2.1","server_port":443,"password":"x",
+			"tls":{"enabled":true,"server_name":"example.com"}},
+		"mode": "vpn",
+		"self_test": false,
+		"log_level": "info"
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine vpn: %v", err)
+	}
+	var snap map[string]any
+	if err := json.Unmarshal([]byte(statsJSON()), &snap); err != nil {
+		t.Fatalf("statsJSON: %v", err)
+	}
+	if snap["mode"] != "vpn" {
+		t.Errorf("stats.mode = %v, want vpn", snap["mode"])
+	}
+	if snap["listen"] != "tun" {
+		t.Errorf("stats.listen = %v, want tun", snap["listen"])
+	}
+	stopEngine()
+	if engineRunning() {
+		t.Fatal("engine should be stopped")
 	}
 }
 

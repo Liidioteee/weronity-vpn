@@ -41,12 +41,13 @@ echo "using $(gcc --version | head -1)"
 out_dir="$repo/native/build/windows"
 mkdir -p "$out_dir"
 
-# Tags: with_quic (hysteria2/tuic), with_utls (uTLS/REALITY). No with_clash_api —
+# Tags: with_quic (hysteria2/tuic), with_utls (uTLS/REALITY), with_gvisor
+# (userspace network stack for the `tun` inbound = VPN mode). No with_clash_api —
 # the log writer is attached to the factory after box.New (see engine.go), so
 # sing-box builds neither a clash server nor a cache.db. Everything else
-# (tailscale, acme, dhcp, wireguard, naive, openvpn, gvisor…) is left out on
-# purpose — smaller binary, smaller attack surface.
-SB_TAGS="with_quic,with_utls"
+# (tailscale, acme, dhcp, wireguard, naive, openvpn…) is left out on purpose —
+# smaller binary, smaller attack surface.
+SB_TAGS="with_quic,with_utls,with_gvisor"
 
 echo "building weronity_core.dll ($mode, tags=$SB_TAGS) with $(go version)"
 ( cd "$src" && go build -buildmode=c-shared \
@@ -58,12 +59,20 @@ cp "$out_dir/weronity_core.h" "$repo/native/include/weronity_core.h"
 echo "  -> $out_dir/weronity_core.dll"
 echo "  -> $repo/native/include/weronity_core.h"
 
-# Make it loadable by `flutter run` / the built exe without CMake wiring.
+# Wintun DLL — sing-box's `tun` inbound (VPN mode) needs it beside the exe on
+# Windows. Fetched, never committed.
+bash "$here/fetch-wintun.sh" "$out_dir"
+
+# Make both DLLs loadable by `flutter run` / the built exe without CMake wiring.
 for d in \
   "$repo/app/build/windows/x64/runner/Debug" \
   "$repo/app/build/windows/x64/runner/Release"; do
   if [ -d "$d" ]; then
     cp "$out_dir/weronity_core.dll" "$d/"
     echo "  -> $d/weronity_core.dll"
+    if [ -f "$out_dir/wintun.dll" ]; then
+      cp "$out_dir/wintun.dll" "$d/"
+      echo "  -> $d/wintun.dll"
+    fi
   fi
 done

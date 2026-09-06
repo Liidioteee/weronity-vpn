@@ -102,6 +102,20 @@ else()
     "native/scripts/build-windows.sh. The app will use the stub engine.")
 endif()
 
+# Wintun DLL — sing-box's `tun` inbound (VPN mode) loads it at runtime. Fetched
+# by native/scripts/fetch-wintun.sh (not committed). Missing it only breaks VPN
+# mode; proxy mode is unaffected.
+set(WINTUN_DLL
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../native/build/windows/wintun.dll")
+if(EXISTS "${WINTUN_DLL}")
+  install(FILES "${WINTUN_DLL}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+else()
+  message(WARNING
+    "wintun.dll not found at ${WINTUN_DLL} — run native/scripts/fetch-wintun.sh. "
+    "VPN (TUN) mode will fail to start; proxy mode still works.")
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

@@ -172,7 +172,9 @@ class _StatusLine extends StatelessWidget {
                     when b.proxyEndpoint != null) ...[
                   const SizedBox(height: WSpace.xs),
                   Text(
-                    'SOCKS5 · ${b.proxyEndpoint}',
+                    b.isVpn
+                        ? 'Системный VPN · TUN'
+                        : 'SOCKS5 · ${b.proxyEndpoint}',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),

@@ -75,8 +75,9 @@ class SettingsScreen extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: WSpace.sm),
                         child: Text(
-                          'Режим VPN (TUN) появится в Фазе 3.3. Сейчас '
-                          'подключение работает только через прокси.',
+                          'VPN перехватывает весь трафик системы через TUN. '
+                          'Нужен запуск от имени администратора. Если сеть '
+                          'пропадёт — отключите VPN или закройте приложение.',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: WColors.connecting,
                               ),

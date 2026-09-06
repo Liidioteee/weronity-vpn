@@ -328,33 +328,38 @@ func (c StartConfig) logLevel() string {
 	}
 }
 
-// buildSingBoxConfig assembles the full config. Everything except the single
-// sanitised proxy outbound is fixed here.
+// dnsBlock is shared by both modes: DoH through the tunnel, plus a local
+// resolver used only for the proxy endpoint's own hostname.
+func dnsBlock() map[string]any {
+	return map[string]any{
+		"servers": []any{
+			map[string]any{
+				"type": "https", "tag": "dns-proxy",
+				"server": "1.1.1.1", "detour": "proxy",
+			},
+			map[string]any{"type": "local", "tag": "dns-local"},
+		},
+		"rules": []any{
+			map[string]any{
+				"outbound": []any{"proxy"},
+				"server":   "dns-local",
+			},
+		},
+		"final":            "dns-proxy",
+		"strategy":         "prefer_ipv4",
+		"independent_cache": true,
+	}
+}
+
+// buildSingBoxConfig assembles the proxy-mode config: one loopback mixed inbound,
+// no control API. Everything except the single sanitised proxy outbound is fixed.
 func buildSingBoxConfig(clean map[string]any, socksPort int, logLevel string) ([]byte, error) {
 	if socksPort <= 0 || socksPort > 65535 {
 		return nil, fmt.Errorf("bad socks port %d", socksPort)
 	}
 	cfg := map[string]any{
 		"log": map[string]any{"level": logLevel, "timestamp": true},
-		"dns": map[string]any{
-			"servers": []any{
-				map[string]any{
-					"type": "https", "tag": "dns-proxy",
-					"server": "1.1.1.1", "detour": "proxy",
-				},
-				map[string]any{"type": "local", "tag": "dns-local"},
-			},
-			"rules": []any{
-				// The proxy endpoint's own hostname resolves locally.
-				map[string]any{
-					"outbound": []any{"proxy"},
-					"server":   "dns-local",
-				},
-			},
-			"final":            "dns-proxy",
-			"strategy":         "prefer_ipv4",
-			"independent_cache": true,
-		},
+		"dns": dnsBlock(),
 		"inbounds": []any{
 			map[string]any{
 				"type": "mixed", "tag": "socks-in",
@@ -377,7 +382,63 @@ func buildSingBoxConfig(clean map[string]any, socksPort int, logLevel string) ([
 	if err != nil {
 		return nil, err
 	}
-	if err := assertConfigSafe(raw); err != nil {
+	if err := assertConfigSafe(raw, "proxy"); err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
+// TUN device addressing — link-local /30 + /126, never routed anywhere real.
+const (
+	tunAddr4 = "172.19.0.1/30"
+	tunAddr6 = "fdfe:dcba:9876::1/126"
+	tunMTU   = 1500
+)
+
+// buildTunConfig assembles the VPN-mode config: a single `tun` inbound with
+// `auto_route` so the whole system's traffic is captured, the gvisor userspace
+// stack (build tag `with_gvisor`), DNS hijacked into the tunnel. Still exactly
+// two outbounds {proxy, direct}, no control API, no experimental block.
+//
+// Loop protection (the proxy outbound's own connection to the node server must
+// go out the physical interface, not back into the tun) is handled by sing-box:
+// `auto_route` marks the engine's own sockets and `auto_detect_interface`
+// binds them to the default interface.
+func buildTunConfig(clean map[string]any, logLevel string) ([]byte, error) {
+	cfg := map[string]any{
+		"log": map[string]any{"level": logLevel, "timestamp": true},
+		"dns": dnsBlock(),
+		"inbounds": []any{
+			map[string]any{
+				"type":         "tun",
+				"tag":          "tun-in",
+				"address":      []any{tunAddr4, tunAddr6},
+				"mtu":          tunMTU,
+				"auto_route":   true,
+				"strict_route": false, // opt-in later; false avoids Windows "no internet" edge cases
+				"stack":        "gvisor",
+			},
+		},
+		"outbounds": []any{
+			clean,
+			map[string]any{"type": "direct", "tag": "direct"},
+		},
+		"route": map[string]any{
+			"rules": []any{
+				map[string]any{"action": "sniff"},
+				map[string]any{"protocol": "dns", "action": "hijack-dns"},
+			},
+			"final":                   "proxy",
+			"auto_detect_interface":   true,
+			"default_domain_resolver": "dns-local",
+		},
+	}
+
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := assertConfigSafe(raw, "vpn"); err != nil {
 		return nil, err
 	}
 	return raw, nil
@@ -385,13 +446,14 @@ func buildSingBoxConfig(clean map[string]any, socksPort int, logLevel string) ([
 
 // assertConfigSafe re-parses the generated config and fails closed if any
 // invariant we rely on is missing — belt-and-braces against future edits.
-func assertConfigSafe(raw []byte) error {
+// `mode` is "proxy" or "vpn"; the inbound checks differ, everything else is shared.
+func assertConfigSafe(raw []byte, mode string) error {
 	var cfg struct {
 		Experimental json.RawMessage `json:"experimental"`
 		Inbounds     []struct {
-			Type       string `json:"type"`
-			Listen     string `json:"listen"`
-			ListenPort int    `json:"listen_port"`
+			Type      string  `json:"type"`
+			Listen    *string `json:"listen"`
+			AutoRoute bool    `json:"auto_route"`
 		} `json:"inbounds"`
 		Outbounds []struct {
 			Type string `json:"type"`
@@ -408,8 +470,27 @@ func assertConfigSafe(raw []byte) error {
 		return fmt.Errorf("expected exactly 1 inbound, got %d", len(cfg.Inbounds))
 	}
 	in := cfg.Inbounds[0]
-	if ip := net.ParseIP(in.Listen); ip == nil || !ip.IsLoopback() {
-		return fmt.Errorf("inbound listen %q is not a loopback address", in.Listen)
+	switch mode {
+	case "vpn":
+		if in.Type != "tun" {
+			return fmt.Errorf("vpn mode: inbound type is %q, want \"tun\"", in.Type)
+		}
+		if in.Listen != nil {
+			return fmt.Errorf("vpn mode: tun inbound must not have a listen address (got %q)", *in.Listen)
+		}
+		if !in.AutoRoute {
+			return errors.New("vpn mode: tun inbound must set auto_route")
+		}
+	default: // proxy
+		if in.Type == "tun" {
+			return errors.New("proxy mode: inbound must not be a tun device")
+		}
+		if in.Listen == nil {
+			return errors.New("proxy mode: inbound has no listen address")
+		}
+		if ip := net.ParseIP(*in.Listen); ip == nil || !ip.IsLoopback() {
+			return fmt.Errorf("inbound listen %q is not a loopback address", *in.Listen)
+		}
 	}
 	tags := make(map[string]struct{})
 	for _, o := range cfg.Outbounds {
