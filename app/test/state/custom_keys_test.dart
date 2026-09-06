@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:weronity/data/custom_keys_repository.dart';
+import 'package:weronity/data/geoip_service.dart';
 import 'package:weronity/state/custom_keys.dart';
 
 /// In-memory repo so the notifier can run without the OS secure store.
@@ -23,11 +24,18 @@ class _FakeRepo implements CustomKeysRepository {
 const _key1 =
     'vless://11111111-2222-3333-4444-555555555555@de.example.net:443?type=tcp&security=reality'
     '&pbk=TESTKEY123&sid=abcd&fp=chrome&sni=www.microsoft.com&flow=xtls-rprx-vision#Мой ключ DE';
-const _key2 = 'trojan://pw@nl.example.net:443?type=ws&security=tls&sni=nl.example.net&path=%2Ft#NL';
+const _key2 =
+    'trojan://pw@nl.example.net:443?type=ws&security=tls&sni=nl.example.net&path=%2Ft#NL';
 
 ProviderContainer _container(_FakeRepo repo) => ProviderContainer(
-      overrides: [customKeysRepositoryProvider.overrideWithValue(repo)],
-    );
+  overrides: [
+    customKeysRepositoryProvider.overrideWithValue(repo),
+    // No asset bundle in a plain unit test — skip the real GeoIP load.
+    geoIpServiceProvider.overrideWith(
+      (ref) => Future<GeoIpService>.error(StateError('no geoip in tests')),
+    ),
+  ],
+);
 
 void main() {
   test('addFromText adds a pasted vless key with a cyrillic label', () async {
@@ -80,7 +88,9 @@ void main() {
     addTearDown(c.dispose);
     await c.read(customKeysProvider.future);
 
-    final r = await c.read(customKeysProvider.notifier).addFromText('hello world');
+    final r = await c
+        .read(customKeysProvider.notifier)
+        .addFromText('hello world');
     expect(r.added, 0);
     expect(r.isNothing, isTrue);
   });
@@ -94,6 +104,19 @@ void main() {
 
     await n.addFromText(_key1);
     await n.removeKey(_key1);
+    expect(c.read(customKeysProvider).requireValue.keys, isEmpty);
+    expect(repo.keys, isEmpty);
+  });
+
+  test('removeKeys bulk-deletes the given raw URIs in one persist', () async {
+    final repo = _FakeRepo();
+    final c = _container(repo);
+    addTearDown(c.dispose);
+    await c.read(customKeysProvider.future);
+    final n = c.read(customKeysProvider.notifier);
+
+    await n.addFromText('$_key1\n$_key2');
+    await n.removeKeys({_key1, _key2, 'not-present://x'});
     expect(c.read(customKeysProvider).requireValue.keys, isEmpty);
     expect(repo.keys, isEmpty);
   });

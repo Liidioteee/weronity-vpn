@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -5,11 +6,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../data/custom_keys_repository.dart';
+import '../data/geoip_service.dart';
+import '../domain/country_names.dart';
 import '../domain/node.dart';
 import '../domain/uri_parser.dart';
 
 final customKeysRepositoryProvider =
     Provider<CustomKeysRepository>((ref) => CustomKeysRepository());
+
+/// Offline IPv4 -> country database, loaded once from a bundled asset.
+final geoIpServiceProvider =
+    FutureProvider<GeoIpService>((ref) => GeoIpService.instance());
 
 @immutable
 class CustomKeysData {
@@ -58,33 +65,105 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
   // Session cache of subscription-derived nodes, keyed by URL.
   final Map<String, List<Node>> _subNodes = {};
 
+  // host -> ISO country code ('' = resolved, no country). Filled in the
+  // background so imported keys get a flag.
+  final Map<String, String> _ccByHost = {};
+  GeoIpService? _geo;
+  bool _disposed = false;
+  bool _geoRunning = false;
+  CustomKeysData? _geoPending;
+
   @override
   Future<CustomKeysData> build() async {
     _repo = ref.watch(customKeysRepositoryProvider);
-    ref.onDispose(_client.close);
+    ref.onDispose(() {
+      _disposed = true;
+      _client.close();
+    });
+    try {
+      _geo = await ref.read(geoIpServiceProvider.future);
+    } on Object catch (e) {
+      debugPrint('GeoIpService unavailable: ${e.runtimeType}');
+      _geo = null;
+    }
     final keys = await _repo.loadKeys();
     final subs = await _repo.loadSubs();
-    return _assemble(keys, subs);
+    final data = _assemble(keys, subs);
+    unawaited(_resolveGeo(data));
+    return data;
   }
+
+  Geo _geoFor(String cc) => Geo(country: cc, countryName: countryNameRu(cc));
 
   CustomKeysData _assemble(List<CustomKey> keys, List<Subscription> subs) {
     final nodes = <String, Node>{};
+    void add(Node n) {
+      final cc = _ccByHost[n.endpoint.host];
+      nodes.putIfAbsent(
+        n.id,
+        () => (cc != null && cc.isNotEmpty) ? n.copyWith(geo: _geoFor(cc)) : n,
+      );
+    }
+
     for (final k in keys) {
       final n = parseProxyUri(k.rawUri);
-      if (n != null) nodes[n.id] = n;
+      if (n != null) add(n);
     }
     for (final s in subs) {
       for (final n in _subNodes[s.url] ?? const <Node>[]) {
-        nodes.putIfAbsent(n.id, () => n);
+        add(n);
       }
     }
     return CustomKeysData(keys: keys, subs: subs, nodes: nodes.values.toList());
   }
 
+  /// Resolve a country for every not-yet-known host in [data], then re-emit
+  /// state so the flags appear. Coalesces overlapping calls (newest [data]
+  /// wins). Takes [data] explicitly because the first call fires before
+  /// `build()` returns, i.e. before `state` is `AsyncData`.
+  Future<void> _resolveGeo(CustomKeysData data) async {
+    if (_geo == null || _disposed) return;
+    _geoPending = data;
+    if (_geoRunning) return;
+    _geoRunning = true;
+    try {
+      while (_geoPending != null && !_disposed) {
+        final next = _geoPending!;
+        _geoPending = null;
+        await _resolveGeoOnce(next);
+      }
+    } finally {
+      _geoRunning = false;
+    }
+  }
+
+  Future<void> _resolveGeoOnce(CustomKeysData data) async {
+    final geo = _geo;
+    if (geo == null) return;
+
+    final hosts = <String>{for (final n in data.nodes) n.endpoint.host}
+      ..removeWhere((h) => h.isEmpty || _ccByHost.containsKey(h));
+    if (hosts.isEmpty) return;
+
+    var changed = false;
+    for (final h in hosts) {
+      if (_disposed) return;
+      final cc = await geo.lookupHost(h);
+      _ccByHost[h] = cc ?? '';
+      if (cc != null && cc.isNotEmpty) changed = true;
+    }
+    if (changed && !_disposed) {
+      final now = state.valueOrNull ?? data;
+      state = AsyncData(_assemble(now.keys, now.subs));
+    }
+  }
+
   Future<void> _persistAndRefresh(List<CustomKey> keys, List<Subscription> subs) async {
     await _repo.saveKeys(keys);
     await _repo.saveSubs(subs);
-    state = AsyncData(_assemble(keys, subs));
+    final data = _assemble(keys, subs);
+    state = AsyncData(data);
+    unawaited(_resolveGeo(data));
   }
 
   /// Add every proxy URI found in [text] (a single URI, a list, or base64).
@@ -129,6 +208,16 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
   Future<void> removeKey(String rawUri) async {
     final current = state.valueOrNull ?? const CustomKeysData();
     final keys = current.keys.where((k) => k.rawUri != rawUri).toList();
+    await _persistAndRefresh(keys, current.subs);
+  }
+
+  /// Remove several keys in one persist (bulk delete from the manager).
+  Future<void> removeKeys(Set<String> rawUris) async {
+    if (rawUris.isEmpty) return;
+    final current = state.valueOrNull ?? const CustomKeysData();
+    final keys =
+        current.keys.where((k) => !rawUris.contains(k.rawUri)).toList();
+    if (keys.length == current.keys.length) return;
     await _persistAndRefresh(keys, current.subs);
   }
 
@@ -185,8 +274,10 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
     final subs = [
       for (final s in current.subs) if (s.url == url) updated else s,
     ];
-    state = AsyncData(_assemble(current.keys, subs));
+    final data = _assemble(current.keys, subs);
+    state = AsyncData(data);
     await _repo.saveSubs(subs);
+    unawaited(_resolveGeo(data));
   }
 
   String? _maybeBase64(String text) {

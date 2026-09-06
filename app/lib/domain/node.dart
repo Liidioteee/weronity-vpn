@@ -241,6 +241,24 @@ class Node {
   String get countryCode => geo.country ?? '??';
   String get displayFlag => geo.flag ?? '🏳️';
 
+  /// Narrow copy — currently only [geo] needs overriding (imported keys get a
+  /// country resolved offline after parsing). Extend as needed.
+  Node copyWith({Geo? geo}) => Node(
+        id: id,
+        protocol: protocol,
+        transport: transport,
+        tag: tag,
+        endpoint: endpoint,
+        geo: geo ?? this.geo,
+        health: health,
+        lifetime: lifetime,
+        classification: classification,
+        provenance: provenance,
+        recommended: recommended,
+        rawUri: rawUri,
+        outbound: outbound,
+      );
+
   factory Node.fromJson(Map<String, dynamic> j) => Node(
         id: (j['id'] ?? '').toString(),
         protocol: (j['protocol'] ?? '').toString(),

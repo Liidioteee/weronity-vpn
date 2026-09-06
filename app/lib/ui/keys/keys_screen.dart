@@ -29,9 +29,17 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
       defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.iOS;
 
+  /// Multi-select mode for "Свои ключи". Holds the raw URIs of picked keys.
+  bool _selecting = false;
+  final Set<String> _selected = {};
+
   @override
   void initState() {
     super.initState();
+    // Ctrl/Cmd+V pastes a key while this screen is the visible branch. A global
+    // key handler (not a Shortcuts/Focus tree) so it works without a prior
+    // click anywhere on the screen.
+    HardwareKeyboard.instance.addHandler(_onGlobalKey);
     // Refresh subscriptions that were never fetched or are older than an hour.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final data = ref.read(customKeysProvider).valueOrNull;
@@ -43,6 +51,32 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
         ref.read(customKeysProvider.notifier).refreshSubscription(s.url);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onGlobalKey);
+    super.dispose();
+  }
+
+  /// True when this Keys branch is the one on screen and no dialog covers it.
+  bool get _screenIsActive =>
+      mounted &&
+      TickerMode.valuesOf(context).enabled &&
+      (ModalRoute.of(context)?.isCurrent ?? true);
+
+  bool _onGlobalKey(KeyEvent e) {
+    if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.keyV) {
+      return false;
+    }
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+    final combo = pressed.contains(LogicalKeyboardKey.controlLeft) ||
+        pressed.contains(LogicalKeyboardKey.controlRight) ||
+        pressed.contains(LogicalKeyboardKey.metaLeft) ||
+        pressed.contains(LogicalKeyboardKey.metaRight);
+    if (!combo || !_screenIsActive || _selecting) return false;
+    _pasteFromClipboard();
+    return true;
   }
 
   void _snack(String text) {
@@ -144,20 +178,138 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final async = ref.watch(customKeysProvider);
+  // ---- multi-select ------------------------------------------------------
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Мои ключи'),
+  void _enterSelection(String rawUri) {
+    setState(() {
+      _selecting = true;
+      _selected
+        ..clear()
+        ..add(rawUri);
+    });
+  }
+
+  void _exitSelection() {
+    setState(() {
+      _selecting = false;
+      _selected.clear();
+    });
+  }
+
+  void _toggle(String rawUri) {
+    setState(() {
+      if (!_selected.remove(rawUri)) _selected.add(rawUri);
+      if (_selected.isEmpty) _selecting = false;
+    });
+  }
+
+  void _selectAll(List<CustomKey> keys) {
+    setState(() {
+      if (_selected.length == keys.length) {
+        _selected.clear();
+        _selecting = false;
+      } else {
+        _selected
+          ..clear()
+          ..addAll(keys.map((k) => k.rawUri));
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    final n = _selected.length;
+    if (n == 0) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Удалить ${_plural(n, 'ключ', 'ключа', 'ключей')}?'),
+        content: const Text('Действие нельзя отменить.'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: WSpace.lg),
-            child: hintFor('custom_keys'),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Удалить'),
           ),
         ],
       ),
+    );
+    if (ok != true) return;
+    await ref.read(customKeysProvider.notifier).removeKeys({..._selected});
+    _exitSelection();
+    _snack('Удалено: $n');
+  }
+
+  static String _plural(int n, String one, String few, String many) {
+    final mod100 = n % 100;
+    final mod10 = n % 10;
+    if (mod100 >= 11 && mod100 <= 14) return '$n $many';
+    if (mod10 == 1) return '$n $one';
+    if (mod10 >= 2 && mod10 <= 4) return '$n $few';
+    return '$n $many';
+  }
+
+  /// The parsed+enriched node for [rawUri] from the notifier's list (falls back
+  /// to a fresh parse). Nodes are keyed by a content id, so parse once to match.
+  static Node? _matchNode(List<Node> nodes, String rawUri) {
+    final parsed = parseProxyUri(rawUri);
+    if (parsed == null) return null;
+    for (final n in nodes) {
+      if (n.id == parsed.id) return n;
+    }
+    return parsed;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(customKeysProvider);
+    final keys = async.valueOrNull?.keys ?? const <CustomKey>[];
+
+    // Drop stale selections after a delete / reload.
+    if (_selecting) {
+      final live = keys.map((k) => k.rawUri).toSet();
+      _selected.removeWhere((r) => !live.contains(r));
+      if (_selected.isEmpty && keys.isEmpty) _selecting = false;
+    }
+
+    return Scaffold(
+      appBar: _selecting
+          ? AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.close_rounded),
+                tooltip: 'Отмена',
+                onPressed: _exitSelection,
+              ),
+              title: Text('${_selected.length} выбрано'),
+              actions: [
+                IconButton(
+                  icon: Icon(_selected.length == keys.length
+                      ? Icons.deselect_rounded
+                      : Icons.select_all_rounded),
+                  tooltip: _selected.length == keys.length
+                      ? 'Снять выделение'
+                      : 'Выбрать все',
+                  onPressed: keys.isEmpty ? null : () => _selectAll(keys),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  tooltip: 'Удалить выбранные',
+                  onPressed: _selected.isEmpty ? null : _deleteSelected,
+                ),
+                const SizedBox(width: WSpace.sm),
+              ],
+            )
+          : AppBar(
+              title: const Text('Мои ключи'),
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: WSpace.lg),
+                  child: hintFor('custom_keys'),
+                ),
+              ],
+            ),
       body: PageBody(
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -169,39 +321,61 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
           data: (data) => ListView(
             padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.sm, WSpace.lg, WSpace.xxl),
             children: [
-              _ActionsRow(
-                onPaste: _pasteFromClipboard,
-                onScan: _scanQr,
-                onSubscribe: _addSubscription,
-              ),
-              const SizedBox(height: WSpace.lg),
+              if (!_selecting) ...[
+                _ActionsRow(
+                  onPaste: _pasteFromClipboard,
+                  onScan: _scanQr,
+                  onSubscribe: _addSubscription,
+                ),
+                const SizedBox(height: WSpace.lg),
+              ],
               if (data.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: WSpace.xxl),
                   child: EmptyState(
                     icon: Icons.vpn_key_rounded,
                     title: 'Пока нет своих ключей',
-                    subtitle: 'Вставьте конфигурацию из буфера или добавьте '
-                        'ссылку на подписку. Ключи попадут в общий пул с меткой [Custom].',
+                    subtitle: 'Вставьте конфигурацию из буфера (Ctrl+V) или '
+                        'добавьте ссылку на подписку. Ключи попадут в общий '
+                        'пул с меткой [Custom].',
                   ),
                 )
               else ...[
                 if (data.keys.isNotEmpty) ...[
-                  _SectionTitle('Свои ключи (${data.keys.length})'),
+                  _SectionHeader(
+                    title: 'Свои ключи (${data.keys.length})',
+                    trailing: _selecting
+                        ? null
+                        : TextButton.icon(
+                            onPressed: () =>
+                                _enterSelection(data.keys.first.rawUri),
+                            icon: const Icon(Icons.checklist_rounded, size: 18),
+                            label: const Text('Выбрать'),
+                          ),
+                  ),
                   for (final key in data.keys)
                     _CustomKeyTile(
                       entry: key,
+                      // Prefer the notifier's node — it carries the geo (flag)
+                      // resolved for imported keys.
+                      node: _matchNode(data.nodes, key.rawUri),
+                      selecting: _selecting,
+                      selected: _selected.contains(key.rawUri),
+                      onTap: _selecting ? () => _toggle(key.rawUri) : null,
+                      onLongPress: _selecting
+                          ? null
+                          : () => _enterSelection(key.rawUri),
                       onShowQr: () => _showQr(
                         key.rawUri,
-                        parseProxyUri(key.rawUri)?.tag ?? 'Ключ',
+                        _matchNode(data.nodes, key.rawUri)?.tag ?? 'Ключ',
                       ),
                       onDelete: () =>
                           ref.read(customKeysProvider.notifier).removeKey(key.rawUri),
                     ),
                   const SizedBox(height: WSpace.lg),
                 ],
-                if (data.subs.isNotEmpty) ...[
-                  _SectionTitle('Подписки (${data.subs.length})'),
+                if (data.subs.isNotEmpty && !_selecting) ...[
+                  _SectionHeader(title: 'Подписки (${data.subs.length})'),
                   for (final sub in data.subs)
                     _SubscriptionTile(
                       sub: sub,
@@ -240,7 +414,7 @@ class _ActionsRow extends StatelessWidget {
         FilledButton.icon(
           onPressed: onPaste,
           icon: const Icon(Icons.content_paste_rounded),
-          label: const Text('Вставить из буфера'),
+          label: const Text('Вставить из буфера (Ctrl+V)'),
         ),
         const SizedBox(height: WSpace.sm),
         Row(
@@ -267,19 +441,26 @@ class _ActionsRow extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.trailing});
+  final String title;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(WSpace.xs, 0, 0, WSpace.sm),
-        child: Text(
-          text.toUpperCase(),
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: Theme.of(context).colorScheme.primary, letterSpacing: 1),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title.toUpperCase(),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    letterSpacing: 1),
+              ),
+            ),
+            ?trailing,
+          ],
         ),
       );
 }
@@ -287,50 +468,68 @@ class _SectionTitle extends StatelessWidget {
 class _CustomKeyTile extends StatelessWidget {
   const _CustomKeyTile({
     required this.entry,
+    required this.node,
     required this.onShowQr,
     required this.onDelete,
+    this.selecting = false,
+    this.selected = false,
+    this.onTap,
+    this.onLongPress,
   });
 
   final CustomKey entry;
+  final Node? node;
   final VoidCallback onShowQr;
   final VoidCallback onDelete;
+  final bool selecting;
+  final bool selected;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
-    final Node? node = parseProxyUri(entry.rawUri);
+    final node = this.node;
     final title = node?.tag.isNotEmpty == true
         ? node!.tag
-        : (node != null ? '${node.endpoint.host}:${node.endpoint.port}' : 'Нераспознанный ключ');
+        : (node != null
+            ? '${node.endpoint.host}:${node.endpoint.port}'
+            : 'Нераспознанный ключ');
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: WSpace.sm),
-      child: SectionCard(
-        padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.md, WSpace.sm, WSpace.md),
-        child: Row(
-          children: [
-            if (node != null)
-              FlagView(node.countryCode, size: 26)
-            else
-              const Icon(Icons.help_outline_rounded, size: 26),
-            const SizedBox(width: WSpace.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 2),
-                  if (node != null)
-                    NodeTags(node, compact: true)
-                  else
-                    Text('Не удалось разобрать',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.error)),
-                ],
-              ),
+    Widget leading;
+    if (selecting) {
+      leading = Checkbox(value: selected, onChanged: (_) => onTap?.call());
+    } else if (node != null) {
+      leading = FlagView(node.countryCode, size: 26);
+    } else {
+      leading = const Icon(Icons.help_outline_rounded, size: 26);
+    }
+
+    final card = SectionCard(
+      padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.md, WSpace.sm, WSpace.md),
+      onTap: selecting ? onTap : null,
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: WSpace.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 2),
+                if (node != null)
+                  NodeTags(node, compact: true)
+                else
+                  Text('Не удалось разобрать',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error)),
+              ],
             ),
+          ),
+          if (!selecting)
             PopupMenuButton<String>(
               onSelected: (v) => v == 'qr' ? onShowQr() : onDelete(),
               itemBuilder: (context) => const [
@@ -338,10 +537,16 @@ class _CustomKeyTile extends StatelessWidget {
                 PopupMenuItem(value: 'del', child: Text('Удалить')),
               ],
             ),
-          ],
-        ),
+        ],
       ),
     );
+
+    final spaced = Padding(
+      padding: const EdgeInsets.only(bottom: WSpace.sm),
+      child: card,
+    );
+    if (onLongPress == null) return spaced;
+    return GestureDetector(onLongPress: onLongPress, child: spaced);
   }
 }
 
