@@ -42,7 +42,7 @@ class PoolRepository {
         _client = client ?? http.Client();
 
   static const _defaultPoolUrl =
-      'https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/pool-data/nodes_pool.json';
+      'https://raw.githubusercontent.com/Liidioteee/weronity-vpn/pool-data/nodes_pool.json';
   static const _cacheKey = 'pool.json';
   static const _cacheAtKey = 'pool.fetchedAt';
 
