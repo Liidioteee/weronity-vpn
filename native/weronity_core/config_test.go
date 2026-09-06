@@ -100,6 +100,68 @@ func TestSanitizeForcesTagAndDropsDangerousKeys(t *testing.T) {
 	if _, present := tr["early_data_command"]; present {
 		t.Error("transport.early_data_command (contains 'command') survived")
 	}
+	hdr, _ := tr["headers"].(map[string]any)
+	if hdr == nil || hdr["Host"] != "a.com" {
+		t.Errorf("transport.headers.Host must be preserved for ws routing, got: %v", tr["headers"])
+	}
+}
+
+// Regression: a domain-fronted trojan-over-ws node with NO TLS whose only
+// routing signal is the ws `Host` header (the shape that shipped broken —
+// sanitizeOutbound used to drop transport.headers entirely).
+func TestSanitizePreservesTransportHeaders(t *testing.T) {
+	raw := mustJSON(t, `{
+		"type": "trojan",
+		"server": "66.23.207.69",
+		"server_port": 443,
+		"password": "p4ss",
+		"transport": {
+			"type": "ws",
+			"path": "/",
+			"headers": {
+				"Host": "telegram.org",
+				"X-Evil\r\nInjected": "1",
+				"drop_command": "x",
+				"Too-Long": "` + strings.Repeat("A", 600) + `"
+			}
+		}
+	}`)
+
+	res, err := sanitizeOutbound(raw)
+	if err != nil {
+		t.Fatalf("sanitize: %v", err)
+	}
+	tr, _ := res.Outbound["transport"].(map[string]any)
+	if tr == nil {
+		t.Fatal("transport dropped")
+	}
+	hdr, _ := tr["headers"].(map[string]any)
+	if hdr == nil {
+		t.Fatal("transport.headers dropped — the fronting Host header is gone")
+	}
+	if hdr["Host"] != "telegram.org" {
+		t.Errorf("Host header not preserved: %v", hdr)
+	}
+	if _, bad := hdr["X-Evil\r\nInjected"]; bad {
+		t.Error("header name with CR/LF survived")
+	}
+	if _, bad := hdr["drop_command"]; bad {
+		t.Error("header name matching the denied-key rule survived")
+	}
+	if _, bad := hdr["Too-Long"]; bad {
+		t.Error("over-long header value survived")
+	}
+}
+
+func TestSanitizeHeadersCap(t *testing.T) {
+	in := map[string]any{}
+	for i := 0; i < maxHeaders+20; i++ {
+		in[strings.Repeat("h", 1)+string(rune('A'+i%26))+string(rune('0'+i/26))] = "v"
+	}
+	out := sanitizeHeaders(in)
+	if len(out) > maxHeaders {
+		t.Errorf("sanitizeHeaders kept %d, cap is %d", len(out), maxHeaders)
+	}
 }
 
 func TestSanitizeRequiresServerAndPort(t *testing.T) {

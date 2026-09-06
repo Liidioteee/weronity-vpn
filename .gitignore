@@ -60,6 +60,11 @@ native/**/*.dylib
 native/**/*.a
 native/**/*.h.bak
 
+# Local diagnostic harness + scraped keys used to reproduce net bugs —
+# never commit third-party keys. The harness self-skips without WRN_PROBE=1.
+native/weronity_core/_probe/
+native/weronity_core/zz_probe_test.go
+
 # ── Generated / downloaded data ────────────────────────────────
 *.mmdb
 collector/geoip/*

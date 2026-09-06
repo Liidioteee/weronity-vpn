@@ -125,8 +125,62 @@ func denied(key string) bool {
 		strings.Contains(lk, "exec")
 }
 
+// Caps applied to an untrusted v2ray-transport `headers` map.
+const (
+	maxHeaders      = 24
+	maxHeaderKeyLen = 128
+	maxHeaderValLen = 512
+)
+
+// hasCtrl reports whether s contains an ASCII control char (incl. CR/LF) — used
+// to refuse header names/values that could smuggle a second header or request.
+func hasCtrl(s string) bool {
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
+// sanitizeHeaders copies a transport `headers` map keeping only well-formed
+// string / []string values. The map is attacker-controlled (it comes from a
+// scraped node) but its whole purpose is the WebSocket/HTTP `Host` (and similar)
+// header the node needs for routing — dropping it silently breaks every
+// domain-fronted ws/httpupgrade node. We keep it, bounded and control-char-free.
+func sanitizeHeaders(src map[string]any) map[string]any {
+	out := make(map[string]any)
+	for k, v := range src {
+		if len(out) >= maxHeaders {
+			break
+		}
+		if k == "" || len(k) > maxHeaderKeyLen || hasCtrl(k) || denied(strings.ToLower(k)) {
+			continue
+		}
+		switch val := v.(type) {
+		case string:
+			if len(val) <= maxHeaderValLen && !hasCtrl(val) {
+				out[k] = val
+			}
+		case []any:
+			list := make([]any, 0, len(val))
+			for _, item := range val {
+				if s, ok := item.(string); ok && len(s) <= maxHeaderValLen && !hasCtrl(s) {
+					list = append(list, s)
+				}
+			}
+			if len(list) > 0 {
+				out[k] = list
+			}
+		}
+	}
+	return out
+}
+
 // pick copies allowed scalar/array keys from src; object keys recurse only if
-// listed in objAllow with their own field list.
+// listed in objAllow with their own field list. The `headers` object is a
+// special case: its keys are not known ahead of time, so it goes through
+// sanitizeHeaders instead of a field allowlist.
 func pick(src map[string]any, fields []string, objAllow map[string][]string) map[string]any {
 	allow := make(map[string]struct{}, len(fields))
 	for _, f := range fields {
@@ -142,6 +196,12 @@ func pick(src map[string]any, fields []string, objAllow map[string][]string) map
 		}
 		switch child := v.(type) {
 		case map[string]any:
+			if k == "headers" {
+				if h := sanitizeHeaders(child); len(h) > 0 {
+					out[k] = h
+				}
+				continue
+			}
 			if sub, ok := objAllow[k]; ok {
 				out[k] = pick(child, sub, objAllow)
 			}
