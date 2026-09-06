@@ -696,9 +696,17 @@ class _NodeSheetPreflight extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: WSpace.md,
+          runSpacing: WSpace.sm,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             OutlinedButton.icon(
+              // The app theme forces button width to infinity — pin it back so
+              // it can sit in a Wrap next to the verdict chip.
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 40),
+              ),
               onPressed: (!core.isAvailable || testing)
                   ? null
                   : () => ref.read(preflightProvider.notifier).test(node),
@@ -711,10 +719,7 @@ class _NodeSheetPreflight extends ConsumerWidget {
                   : const Icon(Icons.wifi_tethering_rounded, size: 16),
               label: Text(testing ? 'Проверка…' : 'Тест'),
             ),
-            if (probe != null && probe.verdict.isDone) ...[
-              const SizedBox(width: WSpace.md),
-              _VerdictChip(probe),
-            ],
+            if (probe != null && probe.verdict.isDone) _VerdictChip(probe),
           ],
         ),
         if (probe != null && probe.error != null)
