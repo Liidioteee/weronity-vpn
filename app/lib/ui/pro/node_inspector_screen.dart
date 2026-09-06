@@ -9,6 +9,7 @@ import '../../core/connection_controller.dart';
 import '../../data/node_filter.dart';
 import '../../domain/country_names.dart';
 import '../../domain/node.dart';
+import '../../state/preflight.dart';
 import '../../state/providers.dart';
 import '../common/flag.dart';
 import '../common/format.dart';
@@ -34,6 +35,8 @@ class NodeInspectorScreen extends ConsumerWidget {
       ),
       children: [
         _FilterPanel(all: all, filter: filter, shownCount: shown.length),
+        const SizedBox(height: WSpace.sm),
+        _PreflightBar(nodes: shown),
         const SizedBox(height: WSpace.md),
         if (shown.isEmpty)
           const Padding(
@@ -409,14 +412,115 @@ class _SliderRow extends StatelessWidget {
   }
 }
 
-class _NodeRow extends StatelessWidget {
+/// A row of preflight controls above the node list.
+class _PreflightBar extends ConsumerWidget {
+  const _PreflightBar({required this.nodes});
+  final List<Node> nodes;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final probes = ref.watch(preflightProvider);
+    final busy = probes.values.any((p) => p.verdict == ProbeVerdict.testing);
+    final done = nodes.where((n) => probes[n.id]?.verdict.isDone ?? false).length;
+    final core = ref.watch(nativeCoreProvider);
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: (!core.isAvailable || nodes.isEmpty || busy)
+                ? null
+                : () => ref
+                    .read(preflightProvider.notifier)
+                    .testAll(List<Node>.from(nodes)),
+            icon: busy
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.wifi_tethering_rounded, size: 16),
+            label: Text(busy
+                ? 'Проверка… ($done/${nodes.length})'
+                : 'Проверить видимые (${nodes.length})'),
+          ),
+        ),
+        if (probes.isNotEmpty) ...[
+          const SizedBox(width: WSpace.sm),
+          IconButton(
+            tooltip: 'Сбросить результаты',
+            icon: const Icon(Icons.clear_rounded, size: 18),
+            onPressed: busy
+                ? null
+                : () => ref.read(preflightProvider.notifier).clear(),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+Color verdictColor(ProbeVerdict v) => switch (v) {
+      ProbeVerdict.works => WColors.protected,
+      ProbeVerdict.slow => WColors.connecting,
+      ProbeVerdict.blocked => WColors.connecting,
+      ProbeVerdict.dead => WColors.danger,
+      ProbeVerdict.error => WColors.danger,
+      ProbeVerdict.testing => WColors.connecting,
+      ProbeVerdict.untested => WColors.danger,
+    };
+
+/// Small verdict pill: a dot + "works · 240 ms" etc.
+class _VerdictChip extends StatelessWidget {
+  const _VerdictChip(this.probe);
+  final NodeProbe probe;
+
+  @override
+  Widget build(BuildContext context) {
+    final v = probe.verdict;
+    final label = switch (v) {
+      ProbeVerdict.works || ProbeVerdict.slow =>
+        '${v.label} · ${probe.bestMs ?? '–'} мс',
+      _ => v.label,
+    };
+    final color = verdictColor(v);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (v == ProbeVerdict.testing)
+          const SizedBox(
+            width: 10,
+            height: 10,
+            child: CircularProgressIndicator(strokeWidth: 1.6),
+          )
+        else
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+        const SizedBox(width: WSpace.xs),
+        Text(
+          label,
+          style: Theme.of(context)
+              .textTheme
+              .labelSmall
+              ?.copyWith(color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _NodeRow extends ConsumerWidget {
   const _NodeRow({required this.node, required this.onTap});
   final Node node;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final probe = ref.watch(preflightProvider.select((m) => m[node.id]));
     return SectionCard(
       padding: const EdgeInsets.symmetric(
         horizontal: WSpace.md,
@@ -462,7 +566,10 @@ class _NodeRow extends StatelessWidget {
                       color: node.health.alive ? WColors.protected : muted,
                     ),
               ),
-              if (!node.health.alive)
+              if (probe != null) ...[
+                const SizedBox(height: 3),
+                _VerdictChip(probe),
+              ] else if (!node.health.alive)
                 Text(
                   'офлайн',
                   style: Theme.of(context)
@@ -551,31 +658,18 @@ Future<void> _showNodeSheet(
           const SizedBox(height: WSpace.xs),
           _JsonBox(json: json),
           const SizedBox(height: WSpace.md),
-          Wrap(
-            spacing: WSpace.sm,
-            runSpacing: WSpace.sm,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: json));
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('JSON скопирован')),
-                  );
-                },
-                icon: const Icon(Icons.copy_rounded, size: 16),
-                label: const Text('Копировать JSON'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Проверка узла появится в Фазе 4'),
-                  ),
-                ),
-                icon: const Icon(Icons.wifi_tethering_rounded, size: 16),
-                label: const Text('Тест'),
-              ),
-            ],
+          OutlinedButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: json));
+              messenger.showSnackBar(
+                const SnackBar(content: Text('JSON скопирован')),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: const Text('Копировать JSON'),
           ),
+          const SizedBox(height: WSpace.sm),
+          _NodeSheetPreflight(node: node),
           const SizedBox(height: WSpace.sm),
           FilledButton.icon(
             onPressed: connectHere,
@@ -586,6 +680,110 @@ Future<void> _showNodeSheet(
       ),
     ),
   );
+}
+
+/// "Тест" button + per-target results inside the node sheet.
+class _NodeSheetPreflight extends ConsumerWidget {
+  const _NodeSheetPreflight({required this.node});
+  final Node node;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final probe = ref.watch(preflightProvider.select((m) => m[node.id]));
+    final core = ref.watch(nativeCoreProvider);
+    final testing = probe?.verdict == ProbeVerdict.testing;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: (!core.isAvailable || testing)
+                  ? null
+                  : () => ref.read(preflightProvider.notifier).test(node),
+              icon: testing
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.wifi_tethering_rounded, size: 16),
+              label: Text(testing ? 'Проверка…' : 'Тест'),
+            ),
+            if (probe != null && probe.verdict.isDone) ...[
+              const SizedBox(width: WSpace.md),
+              _VerdictChip(probe),
+            ],
+          ],
+        ),
+        if (probe != null && probe.error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: WSpace.xs),
+            child: Text(
+              probe.error!,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: WColors.danger),
+            ),
+          ),
+        if (probe != null && probe.hits.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: WSpace.sm),
+            child: Column(
+              children: [
+                for (final h in probe.hits)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Icon(
+                          h.ok
+                              ? Icons.check_circle_rounded
+                              : (h.blocked
+                                  ? Icons.block_rounded
+                                  : Icons.cancel_rounded),
+                          size: 14,
+                          color: h.ok
+                              ? WColors.protected
+                              : (h.blocked
+                                  ? WColors.connecting
+                                  : WColors.danger),
+                        ),
+                        const SizedBox(width: WSpace.sm),
+                        Expanded(
+                          child: Text(
+                            Uri.tryParse(h.url)?.host ?? h.url,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        Text(
+                          h.err != null
+                              ? 'сбой'
+                              : (h.status.isNotEmpty
+                                  ? '${h.status.split(' ').first} · ${h.latencyMs} мс'
+                                  : '${h.latencyMs} мс'),
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class _StatsTable extends StatelessWidget {

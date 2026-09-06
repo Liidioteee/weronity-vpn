@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 
 // ---- C signatures -------------------------------------------------------
 
 typedef _StrRetC = Pointer<Utf8> Function();
+typedef _StrArgC = Pointer<Utf8> Function(Pointer<Utf8>);
+typedef _StrArgDart = Pointer<Utf8> Function(Pointer<Utf8>);
 typedef _PingC = Int32 Function(Int32);
 typedef _PingDart = int Function(int);
 typedef _FreeC = Void Function(Pointer<Utf8>);
@@ -43,13 +46,16 @@ class NativeCore {
 
   factory NativeCore.instance() => _instance ??= _load();
 
+  /// Library names to try, in order. Shared with the isolate helper.
+  static List<String> _libNames() => switch (_os()) {
+        _Os.windows => const ['weronity_core.dll'],
+        _Os.linux => const ['libweronity_core.so', 'weronity_core.so'],
+        _Os.android => const ['libweronity_core.so'],
+        _Os.other => const <String>[],
+      };
+
   static NativeCore _load() {
-    final names = switch (_os()) {
-      _Os.windows => const ['weronity_core.dll'],
-      _Os.linux => const ['libweronity_core.so', 'weronity_core.so'],
-      _Os.android => const ['libweronity_core.so'],
-      _Os.other => const <String>[],
-    };
+    final names = _libNames();
     if (names.isEmpty) {
       return NativeCore._(null)
         .._state = NativeCoreState.unsupported
@@ -81,6 +87,10 @@ class NativeCore {
   late final _stats = _lib?.lookupFunction<_StrRetC, _StrRetC>('wrnStatsJSON');
   late final _drain =
       _lib?.lookupFunction<_StrRetC, _StrRetC>('wrnDrainEvents');
+  late final _isElevated =
+      _lib?.lookupFunction<_IntRetC, _IntRetDart>('wrnIsElevated');
+  late final _relaunchElevated =
+      _lib?.lookupFunction<_IntRetC, _IntRetDart>('wrnRelaunchElevated');
 
   String? _takeString(Pointer<Utf8> Function()? fn) {
     final free = _free;
@@ -100,6 +110,14 @@ class NativeCore {
   int? ping(int x) => _ping?.call(x);
 
   bool isRunning() => (_isRunning?.call() ?? 0) == 1;
+
+  /// Process elevation: `1` elevated (admin), `0` not, `-1` unknown / n/a
+  /// (non-Windows, or the core is missing).
+  int elevation() => _isElevated?.call() ?? -1;
+
+  /// Re-launch this executable with a UAC prompt. `0` = elevated instance is
+  /// starting (the caller should `exit(0)`), `1` = user declined, `-1` = failed.
+  int relaunchElevated() => _relaunchElevated?.call() ?? -1;
 
   /// Boots the sing-box engine for one node [outbound] (Go sanitizes it).
   /// Returns 0 on success.
@@ -157,6 +175,55 @@ class NativeCore {
     } on FormatException {
       return const [];
     }
+  }
+
+  /// Isolated reachability test for one node — spins a throwaway sing-box on an
+  /// ephemeral loopback port, runs HTTP probes through it, tears it down.
+  /// Never touches an active connection. Runs in a helper isolate so it doesn't
+  /// block the UI (it can take a few seconds). Returns the `probeSummary` map,
+  /// or null if the core is missing / the call failed.
+  Future<Map<String, dynamic>?> testNode(
+    Map<String, dynamic> outbound, {
+    List<String>? targets,
+    int timeoutMs = 7000,
+  }) {
+    if (!isAvailable) return Future<Map<String, dynamic>?>.value();
+    final payload = jsonEncode({
+      'outbound': outbound,
+      if (targets != null && targets.isNotEmpty) 'targets': targets,
+      'timeout_ms': timeoutMs,
+    });
+    return Isolate.run(() => _runTestNode(payload));
+  }
+}
+
+/// Isolate entrypoint: opens its own handle to the native library, calls
+/// `wrnTestNode`, frees the result. Must be a top-level function.
+Map<String, dynamic>? _runTestNode(String payload) {
+  DynamicLibrary? lib;
+  for (final name in NativeCore._libNames()) {
+    try {
+      lib = DynamicLibrary.open(name);
+      break;
+    } on Object {
+      // try the next name
+    }
+  }
+  if (lib == null) return null;
+  final test = lib.lookupFunction<_StrArgC, _StrArgDart>('wrnTestNode');
+  final free = lib.lookupFunction<_FreeC, _FreeDart>('wrnFree');
+  final p = payload.toNativeUtf8();
+  try {
+    final rp = test(p);
+    try {
+      return jsonDecode(rp.toDartString()) as Map<String, dynamic>;
+    } finally {
+      free(rp);
+    }
+  } on Object {
+    return null;
+  } finally {
+    malloc.free(p);
   }
 }
 

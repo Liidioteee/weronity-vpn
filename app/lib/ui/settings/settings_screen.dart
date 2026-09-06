@@ -1,3 +1,5 @@
+import 'dart:io' show exit;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -68,8 +70,12 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ],
                       selected: {s.connectionMode},
-                      onSelectionChanged: (v) =>
-                          notifier.setConnectionMode(v.first),
+                      onSelectionChanged: (v) {
+                        notifier.setConnectionMode(v.first);
+                        if (v.first == ConnectionMode.vpn) {
+                          _promptElevationIfNeeded(context, ref);
+                        }
+                      },
                     ),
                     if (s.connectionMode == ConnectionMode.vpn)
                       Padding(
@@ -308,6 +314,51 @@ class SettingsScreen extends ConsumerWidget {
     await ref
         .read(settingsProvider.notifier)
         .setPoolUrlOverride(result.isEmpty ? null : result);
+  }
+
+  /// Offer a UAC relaunch when VPN mode is picked without admin rights.
+  Future<void> _promptElevationIfNeeded(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final core = ref.read(nativeCoreProvider);
+    if (!core.isAvailable || core.elevation() != 0) return; // admin, or n/a
+
+    final relaunch = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Нужны права администратора'),
+        content: const Text(
+          'Режим VPN (TUN) создаёт виртуальный сетевой адаптер — для этого '
+          'приложение должно быть запущено от имени администратора.\n\n'
+          'Перезапустить сейчас с запросом прав?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Позже'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Перезапустить'),
+          ),
+        ],
+      ),
+    );
+    if (relaunch != true) return;
+
+    final rc = core.relaunchElevated();
+    if (rc == 0) {
+      exit(0); // the elevated instance is starting behind the UAC prompt
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        content: Text(rc == 1
+            ? 'Права не предоставлены — режим VPN недоступен'
+            : 'Не удалось перезапустить приложение'),
+      ));
   }
 
   Future<void> _editProxyPort(

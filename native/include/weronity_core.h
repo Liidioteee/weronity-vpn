@@ -93,7 +93,10 @@ extern void wrnFree(char* p);
 extern int wrnStart(char* configJSON);
 extern int wrnStop(void);
 extern int wrnIsRunning(void);
+extern int wrnIsElevated(void);
+extern int wrnRelaunchElevated(void);
 extern char* wrnStatsJSON(void);
+extern char* wrnTestNode(char* reqJSON);
 extern char* wrnDrainEvents(void);
 
 #ifdef __cplusplus

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -11,6 +12,18 @@ import (
 func TestPing(t *testing.T) {
 	if got := ping(41); got != 42 {
 		t.Fatalf("ping(41) = %d, want 42", got)
+	}
+}
+
+func TestIsElevatedReturnsAKnownValue(t *testing.T) {
+	// On Windows it must be a definite yes/no; the stub build returns -1.
+	got := isElevated()
+	if runtime.GOOS == "windows" {
+		if got != 0 && got != 1 {
+			t.Fatalf("isElevated() = %d on windows, want 0 or 1", got)
+		}
+	} else if got != -1 {
+		t.Fatalf("isElevated() = %d on %s, want -1", got, runtime.GOOS)
 	}
 }
 

@@ -71,10 +71,24 @@ class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
   /// Whether the active/selected transport is the system-wide TUN.
   bool get isVpn => modeOf() == ConnectionMode.vpn;
 
+  /// VPN mode is selected but the process is not elevated — the tun device
+  /// cannot be created. UI offers a "restart as admin" path.
+  bool get needsElevationForVpn =>
+      isVpn && core.isAvailable && core.elevation() == 0;
+
   @override
   Future<void> connect(Node? Function(Selection) resolve) async {
     if (isActive) return;
     _lastError = null;
+
+    if (needsElevationForVpn) {
+      _status = ConnectionStatus.error;
+      _lastError = 'Режим VPN требует прав администратора. Перезапустите '
+          'приложение от имени администратора (Настройки → Подключение).';
+      _log('warn', 'core', _lastError!);
+      notifyListeners();
+      return;
+    }
 
     _status = ConnectionStatus.connecting;
     notifyListeners();

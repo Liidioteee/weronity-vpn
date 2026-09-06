@@ -56,9 +56,35 @@ func wrnIsRunning() C.int {
 	return 0
 }
 
+// wrnIsElevated: 1 = process is elevated (admin), 0 = not, -1 = unknown /
+// not applicable (non-Windows).
+//
+//export wrnIsElevated
+func wrnIsElevated() C.int {
+	return C.int(isElevated())
+}
+
+// wrnRelaunchElevated re-launches this executable with a UAC prompt.
+// Returns 0 (elevated instance starting — caller should exit), 1 (user
+// declined), or -1 (failed / not applicable).
+//
+//export wrnRelaunchElevated
+func wrnRelaunchElevated() C.int {
+	return C.int(relaunchElevated())
+}
+
 //export wrnStatsJSON
 func wrnStatsJSON() *C.char {
 	return C.CString(statsJSON())
+}
+
+// wrnTestNode runs an isolated reachability test for one node and returns a
+// JSON `probeSummary`. Blocking (up to ~timeout*targets); call it off the
+// caller's UI thread. Does not touch the main engine.
+//
+//export wrnTestNode
+func wrnTestNode(reqJSON *C.char) *C.char {
+	return C.CString(testNodeJSON(C.GoString(reqJSON)))
 }
 
 // wrnDrainEvents returns a JSON array of event objects queued since the last
