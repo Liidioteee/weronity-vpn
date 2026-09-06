@@ -13,12 +13,14 @@ Future<void> main() async {
 
   final poolBox = await Hive.openBox<String>('pool_cache');
   final settingsBox = await Hive.openBox<dynamic>('settings');
+  final sessionBox = await Hive.openBox<dynamic>('session');
 
   runApp(
     ProviderScope(
       overrides: [
         poolCacheBoxProvider.overrideWithValue(poolBox),
         settingsBoxProvider.overrideWithValue(settingsBox),
+        sessionBoxProvider.overrideWithValue(sessionBox),
       ],
       child: const WeronityApp(),
     ),

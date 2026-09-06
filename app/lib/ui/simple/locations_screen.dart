@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,6 +27,9 @@ class _LocationsScreenState extends ConsumerState<LocationsScreen> {
   String _query = '';
 
   Future<void> _choose(Selection sel) async {
+    unawaited(
+      ref.read(sessionBoxProvider).put('selection', selectionToJson(sel)),
+    );
     final controller = ref.read(connectionControllerProvider);
     final ok = await controller.select(sel, ref.read(resolveSelectionProvider));
     if (!mounted) return;

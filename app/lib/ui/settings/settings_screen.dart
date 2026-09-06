@@ -13,6 +13,18 @@ import '../common/widgets.dart';
 import '../pro/core_probe_sheet.dart';
 import '../shell/home_shell.dart' show PageBody;
 
+/// Tighter segmented-button metrics so 3 Russian labels fit one line at the
+/// default 440-px window width.
+const _segStyle = ButtonStyle(
+  visualDensity: VisualDensity.compact,
+  padding: WidgetStatePropertyAll(
+    EdgeInsets.symmetric(horizontal: WSpace.sm),
+  ),
+  textStyle: WidgetStatePropertyAll(
+    TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+  ),
+);
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -57,6 +69,7 @@ class SettingsScreen extends ConsumerWidget {
                     const SizedBox(height: WSpace.md),
                     SegmentedButton<ConnectionMode>(
                       showSelectedIcon: false,
+                      style: _segStyle,
                       segments: const [
                         ButtonSegment(
                           value: ConnectionMode.proxy,
@@ -120,21 +133,19 @@ class SettingsScreen extends ConsumerWidget {
                     const SizedBox(height: WSpace.md),
                     SegmentedButton<ThemeMode>(
                       showSelectedIcon: false,
+                      style: _segStyle,
                       segments: const [
                         ButtonSegment(
                           value: ThemeMode.dark,
                           label: Text('Тёмная'),
-                          icon: Icon(Icons.dark_mode_rounded, size: 18),
                         ),
                         ButtonSegment(
                           value: ThemeMode.light,
                           label: Text('Светлая'),
-                          icon: Icon(Icons.light_mode_rounded, size: 18),
                         ),
                         ButtonSegment(
                           value: ThemeMode.system,
                           label: Text('Авто'),
-                          icon: Icon(Icons.brightness_auto_rounded, size: 18),
                         ),
                       ],
                       selected: {s.themeMode},
@@ -167,21 +178,19 @@ class SettingsScreen extends ConsumerWidget {
                       const SizedBox(height: WSpace.md),
                       SegmentedButton<WindowCloseAction>(
                         showSelectedIcon: false,
+                        style: _segStyle,
                         segments: const [
                           ButtonSegment(
                             value: WindowCloseAction.ask,
-                            label: Text('Спрашивать'),
-                            icon: Icon(Icons.help_outline_rounded, size: 18),
+                            label: Text('Спросить'),
                           ),
                           ButtonSegment(
                             value: WindowCloseAction.tray,
                             label: Text('В трей'),
-                            icon: Icon(Icons.minimize_rounded, size: 18),
                           ),
                           ButtonSegment(
                             value: WindowCloseAction.quit,
-                            label: Text('Выходить'),
-                            icon: Icon(Icons.close_rounded, size: 18),
+                            label: Text('Выйти'),
                           ),
                         ],
                         selected: {s.closeAction},
@@ -193,6 +202,62 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+          _Group(
+            title: 'Проверка узлов',
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    WSpace.lg, WSpace.lg, WSpace.lg, 0),
+                child: Text(
+                  'Приложение постоянно и мягко проверяет узлы в фоне — '
+                  'результаты и автоподборки не сбрасываются.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ),
+              SwitchListTile(
+                title: const Text('Автопроверка в фоне'),
+                value: s.autoCheck,
+                onChanged: notifier.setAutoCheck,
+              ),
+              SwitchListTile(
+                title: const Text('Автопереключение при обрыве'),
+                subtitle: const Text(
+                    'Если активный узел перестал отвечать — перейти на лучший '
+                    'живой (та же страна в приоритете)'),
+                value: s.autoSwitch,
+                onChanged: notifier.setAutoSwitch,
+              ),
+              ListTile(
+                title: const Text('Проверок одновременно'),
+                subtitle:
+                    Text('${s.checkConcurrency} · при ручном «Проверить видимые»'),
+                trailing: const Icon(Icons.edit_rounded, size: 18),
+                onTap: () => _editInt(
+                  context, ref,
+                  title: 'Проверок одновременно',
+                  hint: '1–20',
+                  current: s.checkConcurrency,
+                  min: 1, max: 20,
+                  apply: notifier.setCheckConcurrency,
+                ),
+              ),
+              ListTile(
+                title: const Text('Таймаут проверки'),
+                subtitle: Text('${s.checkTimeoutMs} мс · нет ответа — узел мёртв'),
+                trailing: const Icon(Icons.edit_rounded, size: 18),
+                onTap: () => _editInt(
+                  context, ref,
+                  title: 'Таймаут проверки, мс',
+                  hint: '1000–15000',
+                  current: s.checkTimeoutMs,
+                  min: 1000, max: 15000,
+                  apply: notifier.setCheckTimeoutMs,
+                ),
+              ),
+            ],
+          ),
           _Group(
             title: 'Маршрутизация',
             children: [
@@ -413,17 +478,39 @@ class SettingsScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     int current,
-  ) async {
+  ) =>
+      _editInt(
+        context,
+        ref,
+        title: 'Порт локального прокси',
+        hint: '1024–65535',
+        current: current,
+        min: 1024,
+        max: 65535,
+        apply: ref.read(settingsProvider.notifier).setProxyPort,
+      );
+
+  /// Generic "edit an integer setting" dialog.
+  Future<void> _editInt(
+    BuildContext context,
+    WidgetRef ref, {
+    required String title,
+    required String hint,
+    required int current,
+    required int min,
+    required int max,
+    required void Function(int) apply,
+  }) async {
     final controller = TextEditingController(text: '$current');
     final result = await showDialog<int?>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Порт локального прокси'),
+        title: Text(title),
         content: TextField(
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: '1024–65535'),
+          decoration: InputDecoration(hintText: hint),
         ),
         actions: [
           TextButton(
@@ -439,7 +526,7 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
     if (result == null) return;
-    await ref.read(settingsProvider.notifier).setProxyPort(result);
+    apply(result.clamp(min, max));
   }
 
   void _showEndpoints(BuildContext context, List<String> endpoints) {

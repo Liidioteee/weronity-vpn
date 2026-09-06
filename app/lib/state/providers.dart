@@ -23,6 +23,12 @@ final settingsBoxProvider = Provider<Box<dynamic>>(
   (ref) => throw UnimplementedError('override settingsBoxProvider in main()'),
 );
 
+/// Session state that must survive a restart: cached node-check results, the
+/// last selected location/bundle.
+final sessionBoxProvider = Provider<Box<dynamic>>(
+  (ref) => throw UnimplementedError('override sessionBoxProvider in main()'),
+);
+
 final poolRepositoryProvider = Provider<PoolRepository>((ref) {
   final repo = PoolRepository(cacheBox: ref.watch(poolCacheBoxProvider));
   final override = ref.watch(settingsProvider).poolUrlOverride;
@@ -69,6 +75,12 @@ class SettingsNotifier extends Notifier<Settings> {
       _mutate(state.copyWith(proxyPort: v.clamp(1024, 65535)));
   Future<void> setCloseAction(WindowCloseAction v) =>
       _mutate(state.copyWith(closeAction: v));
+  Future<void> setCheckConcurrency(int v) =>
+      _mutate(state.copyWith(checkConcurrency: v.clamp(1, 20)));
+  Future<void> setCheckTimeoutMs(int v) =>
+      _mutate(state.copyWith(checkTimeoutMs: v.clamp(1000, 15000)));
+  Future<void> setAutoCheck(bool v) => _mutate(state.copyWith(autoCheck: v));
+  Future<void> setAutoSwitch(bool v) => _mutate(state.copyWith(autoSwitch: v));
 }
 
 final settingsProvider =
@@ -197,6 +209,54 @@ final nativeCoreProvider = Provider<NativeCore>((ref) {
 /// an explicit node as-is; otherwise the lowest-ping recommended node in the
 /// chosen country (or globally for "⚡ Авто"). Session-priority for a previously
 /// used node is Phase 4.
+// --- session persistence ---------------------------------------------
+
+Map<String, dynamic> selectionToJson(Selection s) {
+  if (s.isAuto) return const {'k': 'auto'};
+  if (s.bundleId != null) return {'k': 'bundle', 'v': s.bundleId};
+  if (s.countryCode != null) return {'k': 'country', 'v': s.countryCode};
+  if (s.node != null) return {'k': 'node', 'v': s.node!.id};
+  return const {'k': 'auto'};
+}
+
+Selection selectionFromJson(Object? raw, List<Node> nodes) {
+  if (raw is! Map) return const Selection.auto();
+  final v = '${raw['v'] ?? ''}';
+  switch ('${raw['k']}') {
+    case 'country':
+      return v.isEmpty ? const Selection.auto() : Selection.country(v);
+    case 'bundle':
+      return v.isEmpty ? const Selection.auto() : Selection.bundle(v);
+    case 'node':
+      for (final n in nodes) {
+        if (n.id == v) return Selection.node(n);
+      }
+      return const Selection.auto();
+    default:
+      return const Selection.auto();
+  }
+}
+
+/// Re-applies the location/bundle the user had chosen last session, once the
+/// pool is loaded. Watched once at the app root.
+final sessionRestoreProvider = Provider<void>((ref) {
+  final nodes = ref.watch(nodesProvider);
+  if (nodes.isEmpty) return;
+  final box = ref.read(sessionBoxProvider);
+  if (box.get('selection.restored') == true) return;
+
+  final saved = selectionFromJson(box.get('selection'), nodes);
+  box.put('selection.restored', true);
+  if (saved.isAuto) return;
+
+  Future.microtask(() {
+    final controller = ref.read(connectionControllerProvider);
+    if (controller.selection.isAuto && !controller.isActive) {
+      controller.select(saved, ref.read(resolveSelectionProvider));
+    }
+  });
+});
+
 final resolveSelectionProvider = Provider<Node? Function(Selection)>((ref) {
   final nodes = ref.watch(nodesProvider);
   final bundles = ref.watch(allBundlesProvider);

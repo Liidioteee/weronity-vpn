@@ -89,6 +89,10 @@ class Settings {
     this.connectionMode = ConnectionMode.proxy,
     this.proxyPort = 55555,
     this.closeAction = WindowCloseAction.ask,
+    this.checkConcurrency = 8,
+    this.checkTimeoutMs = 4000,
+    this.autoCheck = true,
+    this.autoSwitch = true,
   });
 
   final bool proMode;
@@ -105,6 +109,19 @@ class Settings {
   final ConnectionMode connectionMode;
   final int proxyPort;
   final WindowCloseAction closeAction;
+
+  /// Node-check tuning. `checkConcurrency` — how many nodes are probed at once
+  /// during a manual "Проверить видимые" sweep (1–20). `checkTimeoutMs` — a
+  /// probe that gets no answer within this is called dead.
+  final int checkConcurrency;
+  final int checkTimeoutMs;
+
+  /// Keep checking nodes (and the live connection) in the background, gently.
+  final bool autoCheck;
+
+  /// When connected and the active node stops responding, switch to the best
+  /// live alternative (same country first) automatically.
+  final bool autoSwitch;
 
   List<String> rules(RuleBucket bucket) => switch (bucket) {
         RuleBucket.direct => directRules,
@@ -140,6 +157,10 @@ class Settings {
     ConnectionMode? connectionMode,
     int? proxyPort,
     WindowCloseAction? closeAction,
+    int? checkConcurrency,
+    int? checkTimeoutMs,
+    bool? autoCheck,
+    bool? autoSwitch,
   }) =>
       Settings(
         proMode: proMode ?? this.proMode,
@@ -159,6 +180,10 @@ class Settings {
         connectionMode: connectionMode ?? this.connectionMode,
         proxyPort: proxyPort ?? this.proxyPort,
         closeAction: closeAction ?? this.closeAction,
+        checkConcurrency: checkConcurrency ?? this.checkConcurrency,
+        checkTimeoutMs: checkTimeoutMs ?? this.checkTimeoutMs,
+        autoCheck: autoCheck ?? this.autoCheck,
+        autoSwitch: autoSwitch ?? this.autoSwitch,
       );
 
   Settings withRules(RuleBucket bucket, List<String> value) => switch (bucket) {
@@ -197,6 +222,15 @@ class SettingsRepository {
             ConnectionMode.parse(_box.get('connectionMode', defaultValue: 0)),
         proxyPort: (_box.get('proxyPort', defaultValue: 55555) as num).toInt(),
         closeAction: WindowCloseAction.parse(_box.get('closeAction')),
+        checkConcurrency:
+            (_box.get('checkConcurrency', defaultValue: 8) as num)
+                .toInt()
+                .clamp(1, 20),
+        checkTimeoutMs: (_box.get('checkTimeoutMs', defaultValue: 4000) as num)
+            .toInt()
+            .clamp(1000, 15000),
+        autoCheck: _box.get('autoCheck', defaultValue: true) as bool,
+        autoSwitch: _box.get('autoSwitch', defaultValue: true) as bool,
       );
 
   Future<void> save(Settings s) async {
@@ -215,6 +249,10 @@ class SettingsRepository {
       'connectionMode': s.connectionMode.index,
       'proxyPort': s.proxyPort,
       'closeAction': s.closeAction.name,
+      'checkConcurrency': s.checkConcurrency,
+      'checkTimeoutMs': s.checkTimeoutMs,
+      'autoCheck': s.autoCheck,
+      'autoSwitch': s.autoSwitch,
     });
   }
 }

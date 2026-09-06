@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/desktop/tray_host.dart';
+import '../state/monitor.dart';
 import '../state/providers.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
@@ -14,6 +15,8 @@ class WeronityApp extends ConsumerWidget {
     final themeMode = ref.watch(settingsProvider.select((s) => s.themeMode));
     ref.watch(poolPollingProvider); // background pool refresh
     ref.watch(nativeCoreProvider); // probe the FFI core, log the outcome
+    ref.watch(monitorProvider); // always-on gentle node/connection watchdog
+    ref.watch(sessionRestoreProvider); // re-apply last session's location
     return MaterialApp.router(
       title: 'Weronity',
       debugShowCheckedModeBanner: false,

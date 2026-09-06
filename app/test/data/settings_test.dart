@@ -92,6 +92,27 @@ void main() {
       expect(back.connectionMode, ConnectionMode.vpn);
       expect(back.proxyPort, 10800);
     });
+
+    test('node-check settings default and round-trip, clamped on load', () async {
+      final repo = SettingsRepository(_FakeBox());
+      final def = repo.load();
+      expect(def.checkConcurrency, 8);
+      expect(def.checkTimeoutMs, 4000);
+      expect(def.autoCheck, isTrue);
+      expect(def.autoSwitch, isTrue);
+
+      await repo.save(const Settings(
+        checkConcurrency: 50, // over the max
+        checkTimeoutMs: 100, // under the min
+        autoCheck: false,
+        autoSwitch: false,
+      ));
+      final back = repo.load();
+      expect(back.checkConcurrency, 20); // clamped
+      expect(back.checkTimeoutMs, 1000); // clamped
+      expect(back.autoCheck, isFalse);
+      expect(back.autoSwitch, isFalse);
+    });
   });
 
   test('ConnectionMode.parse tolerates strings and ints', () {

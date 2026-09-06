@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -54,6 +56,15 @@ class ProbeHit {
         blocked: j['blocked'] == true,
         err: (j['err'] as String?)?.isNotEmpty == true ? j['err'] as String : null,
       );
+
+  Map<String, dynamic> toJson() => {
+        'url': url,
+        'ok': ok,
+        'status': status,
+        'latency_ms': latencyMs,
+        'blocked': blocked,
+        if (err != null) 'err': err,
+      };
 }
 
 @immutable
@@ -119,37 +130,132 @@ class NodeProbe {
         ProbeVerdict.testing => 400000,
         ProbeVerdict.untested => 500000,
       };
+
+  bool get isGood =>
+      verdict == ProbeVerdict.works || verdict == ProbeVerdict.slow;
+
+  /// A hit against [url] that succeeded, if the probe recorded one.
+  ProbeHit? hitFor(String url) {
+    for (final h in hits) {
+      if (h.url == url) return h;
+    }
+    return null;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'v': verdict.name,
+        if (bestMs != null) 'best': bestMs,
+        if (error != null) 'err': error,
+        if (at != null) 'at': at!.toIso8601String(),
+        'hits': [for (final h in hits) h.toJson()],
+      };
+
+  factory NodeProbe.fromJson(Map<String, dynamic> j) {
+    final v = ProbeVerdict.values.firstWhere(
+      (e) => e.name == j['v'],
+      orElse: () => ProbeVerdict.untested,
+    );
+    return NodeProbe(
+      verdict: v == ProbeVerdict.testing ? ProbeVerdict.untested : v,
+      bestMs: (j['best'] as num?)?.toInt(),
+      error: j['err'] as String?,
+      at: DateTime.tryParse(j['at']?.toString() ?? ''),
+      hits: [
+        for (final h in (j['hits'] as List<dynamic>? ?? const []))
+          if (h is Map<String, dynamic>) ProbeHit.fromJson(h),
+      ],
+    );
+  }
 }
 
 class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
+  static const _boxKey = 'preflight.v1';
+  Timer? _saveDebounce;
+
   @override
-  Map<String, NodeProbe> build() => const {};
+  Map<String, NodeProbe> build() {
+    ref.onDispose(() => _saveDebounce?.cancel());
+    Object? raw;
+    try {
+      raw = ref.read(sessionBoxProvider).get(_boxKey);
+    } on UnimplementedError {
+      return const {}; // no session box (e.g. a unit test) — start empty
+    }
+    if (raw is! Map) return const {};
+    try {
+      return {
+        for (final e in raw.entries)
+          if (e.value is Map)
+            '${e.key}': NodeProbe.fromJson(
+              Map<String, dynamic>.from(e.value as Map),
+            ),
+      };
+    } on Object catch (e) {
+      debugPrint('preflight cache load failed: $e');
+      return const {};
+    }
+  }
+
+  void _persist() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(seconds: 2), () {
+      try {
+        ref.read(sessionBoxProvider).put(_boxKey, {
+          for (final e in state.entries)
+            if (e.value.verdict.isDone) e.key: e.value.toJson(),
+        });
+      } on Object catch (e) {
+        debugPrint('preflight cache save failed: $e');
+      }
+    });
+  }
 
   NodeProbe of(String nodeId) => state[nodeId] ?? NodeProbe.untested;
 
   bool get anyTesting =>
       state.values.any((p) => p.verdict == ProbeVerdict.testing);
 
-  Future<void> test(Node node) async {
-    if (state[node.id]?.verdict == ProbeVerdict.testing) return;
-    state = {...state, node.id: NodeProbe.testing};
+  /// Node ids whose last result is older than [maxAge] (or never checked).
+  Iterable<String> staleAmong(Iterable<String> ids, Duration maxAge) {
+    final cutoff = DateTime.now().subtract(maxAge);
+    return ids.where((id) {
+      final p = state[id];
+      if (p == null || !p.verdict.isDone) return true;
+      final at = p.at;
+      return at == null || at.isBefore(cutoff);
+    });
+  }
+
+  Future<void> test(Node node) => testRaw(node.id, node.outbound);
+
+  /// The core probe. [outbound] is the sanitised-on-the-Go-side node config.
+  Future<void> testRaw(String id, Map<String, dynamic> outbound) async {
+    if (state[id]?.verdict == ProbeVerdict.testing) return;
+    state = {...state, id: NodeProbe.testing};
 
     final core = ref.read(nativeCoreProvider);
-    final targets = ref.read(settingsProvider).preflightEndpoints;
+    final s = ref.read(settingsProvider);
     Map<String, dynamic>? summary;
     try {
-      summary = await core.testNode(node.outbound, targets: targets);
+      summary = await core.testNode(
+        outbound,
+        targets: s.preflightEndpoints,
+        timeoutMs: s.checkTimeoutMs,
+      );
     } on Object catch (e) {
       summary = {'err': '$e'};
     }
     final result = summary == null
         ? const NodeProbe(verdict: ProbeVerdict.error, error: 'ядро недоступно')
         : NodeProbe.fromSummary(summary);
-    state = {...state, node.id: result};
+    state = {...state, id: result};
+    _persist();
   }
 
-  /// Test every node in [nodes], [concurrency] at a time.
-  Future<void> testAll(List<Node> nodes, {int concurrency = 3}) async {
+  /// Test every node in [nodes]; [concurrency] defaults to the user's setting.
+  Future<void> testAll(List<Node> nodes, {int? concurrency}) async {
+    final n = (concurrency ?? ref.read(settingsProvider).checkConcurrency)
+        .clamp(1, 20);
     final queue = [...nodes];
     Future<void> worker() async {
       while (queue.isNotEmpty) {
@@ -157,10 +263,13 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
       }
     }
 
-    await Future.wait([for (var i = 0; i < concurrency; i++) worker()]);
+    await Future.wait([for (var i = 0; i < n; i++) worker()]);
   }
 
-  void clear() => state = const {};
+  void clear() {
+    state = const {};
+    _persist();
+  }
 
   @visibleForTesting
   void debugPut(String nodeId, NodeProbe probe) =>

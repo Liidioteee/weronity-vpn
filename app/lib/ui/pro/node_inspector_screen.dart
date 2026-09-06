@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -596,7 +597,11 @@ Future<void> _showNodeSheet(
   Future<void> connectHere() async {
     final controller = ref.read(connectionControllerProvider);
     final resolve = ref.read(resolveSelectionProvider);
-    await controller.select(Selection.node(node), resolve);
+    final sel = Selection.node(node);
+    unawaited(
+      ref.read(sessionBoxProvider).put('selection', selectionToJson(sel)),
+    );
+    await controller.select(sel, resolve);
     if (!controller.isActive) await controller.connect(resolve);
     await ref.read(settingsProvider.notifier).rememberLastGoodNode(node.id);
     if (context.mounted) Navigator.of(context).pop();
