@@ -18,6 +18,8 @@ typedef _StartC = Int32 Function(Pointer<Utf8>);
 typedef _StartDart = int Function(Pointer<Utf8>);
 typedef _IntRetC = Int32 Function();
 typedef _IntRetDart = int Function();
+typedef _IntArgC = Int32 Function(Int32);
+typedef _IntArgDart = int Function(int);
 
 /// How the native core resolved on this platform.
 enum NativeCoreState { ok, unavailable, unsupported }
@@ -91,6 +93,8 @@ class NativeCore {
       _lib?.lookupFunction<_IntRetC, _IntRetDart>('wrnIsElevated');
   late final _relaunchElevated =
       _lib?.lookupFunction<_IntRetC, _IntRetDart>('wrnRelaunchElevated');
+  late final _selectCandidate =
+      _lib?.lookupFunction<_IntArgC, _IntArgDart>('wrnSelectCandidate');
 
   String? _takeString(Pointer<Utf8> Function()? fn) {
     final free = _free;
@@ -119,25 +123,34 @@ class NativeCore {
   /// starting (the caller should `exit(0)`), `1` = user declined, `-1` = failed.
   int relaunchElevated() => _relaunchElevated?.call() ?? -1;
 
-  /// Boots the sing-box engine for one node [outbound] (Go sanitizes it).
-  /// Returns 0 on success.
+  /// Boots the sing-box engine for the candidate set [outbounds] (Go sanitizes
+  /// every one of them). Returns 0 on success.
+  ///
+  /// The first entry is the node to use; the rest are backups. Passing more
+  /// than one makes the core build a `selector` group, which is what lets
+  /// [selectCandidate] switch nodes later without tearing the tunnel down. Go
+  /// caps the list at 32 and drops any backup it cannot sanitize; only a bad
+  /// *first* entry fails the start.
   ///
   /// [mode] `'proxy'` opens a loopback proxy on 127.0.0.1:[listenPort]
-  /// (0 = pick free; default 55555). `'vpn'` is rejected until Phase 3.3.
-  int startNode(
-    Map<String, dynamic> outbound, {
+  /// (0 = pick free; default 55555); `'vpn'` builds the system-wide TUN.
+  /// [strictRoute] applies to VPN mode only.
+  int startNodes(
+    List<Map<String, dynamic>> outbounds, {
     String mode = 'proxy',
     int listenPort = 0,
     bool selfTest = true,
+    bool strictRoute = false,
     String logLevel = 'info',
   }) {
     final fn = _start;
-    if (fn == null) return -1;
+    if (fn == null || outbounds.isEmpty) return -1;
     final payload = jsonEncode({
-      'outbound': outbound,
+      'outbounds': outbounds,
       'mode': mode,
       'listen_port': listenPort,
       'self_test': selfTest,
+      'strict_route': strictRoute,
       'log_level': logLevel,
     });
     final p = payload.toNativeUtf8();
@@ -147,6 +160,33 @@ class NativeCore {
       malloc.free(p);
     }
   }
+
+  /// Single-node convenience wrapper around [startNodes].
+  int startNode(
+    Map<String, dynamic> outbound, {
+    String mode = 'proxy',
+    int listenPort = 0,
+    bool selfTest = true,
+    bool strictRoute = false,
+    String logLevel = 'info',
+  }) =>
+      startNodes(
+        [outbound],
+        mode: mode,
+        listenPort: listenPort,
+        selfTest: selfTest,
+        strictRoute: strictRoute,
+        logLevel: logLevel,
+      );
+
+  /// Switches the running selector group to candidate [index] (the order given
+  /// to [startNodes]) without restarting the engine — no tunnel teardown, and
+  /// in VPN mode no network drop.
+  ///
+  /// Returns `true` on success. `false` means the core refused (the session was
+  /// started with a single node, the index is out of range, or the engine is
+  /// stopped) and the caller should fall back to stop/start.
+  bool selectCandidate(int index) => (_selectCandidate?.call(index) ?? 1) == 0;
 
   int stop() => _stop?.call() ?? -1;
 

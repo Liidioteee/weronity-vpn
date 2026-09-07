@@ -88,6 +88,7 @@ class Settings {
     this.blockRules = const [],
     this.connectionMode = ConnectionMode.proxy,
     this.proxyPort = 55555,
+    this.strictRoute = false,
     this.closeAction = WindowCloseAction.ask,
     this.checkConcurrency = 8,
     this.checkTimeoutMs = 4000,
@@ -108,6 +109,13 @@ class Settings {
   final List<String> blockRules;
   final ConnectionMode connectionMode;
   final int proxyPort;
+
+  /// VPN mode only: sing-box `strict_route` on the tun inbound. Closes the leak
+  /// paths `auto_route` leaves open, at the cost of being the setting most
+  /// likely to strand a machine whose routing is already owned by something
+  /// else — so it is off by default and the UI warns about it.
+  final bool strictRoute;
+
   final WindowCloseAction closeAction;
 
   /// Node-check tuning. `checkConcurrency` — how many nodes are probed at once
@@ -156,6 +164,7 @@ class Settings {
     List<String>? blockRules,
     ConnectionMode? connectionMode,
     int? proxyPort,
+    bool? strictRoute,
     WindowCloseAction? closeAction,
     int? checkConcurrency,
     int? checkTimeoutMs,
@@ -179,6 +188,7 @@ class Settings {
         blockRules: blockRules ?? this.blockRules,
         connectionMode: connectionMode ?? this.connectionMode,
         proxyPort: proxyPort ?? this.proxyPort,
+        strictRoute: strictRoute ?? this.strictRoute,
         closeAction: closeAction ?? this.closeAction,
         checkConcurrency: checkConcurrency ?? this.checkConcurrency,
         checkTimeoutMs: checkTimeoutMs ?? this.checkTimeoutMs,
@@ -221,6 +231,7 @@ class SettingsRepository {
         connectionMode:
             ConnectionMode.parse(_box.get('connectionMode', defaultValue: 0)),
         proxyPort: (_box.get('proxyPort', defaultValue: 55555) as num).toInt(),
+        strictRoute: _box.get('strictRoute', defaultValue: false) as bool,
         closeAction: WindowCloseAction.parse(_box.get('closeAction')),
         checkConcurrency:
             (_box.get('checkConcurrency', defaultValue: 8) as num)
@@ -248,6 +259,7 @@ class SettingsRepository {
       'blockRules': s.blockRules,
       'connectionMode': s.connectionMode.index,
       'proxyPort': s.proxyPort,
+      'strictRoute': s.strictRoute,
       'closeAction': s.closeAction.name,
       'checkConcurrency': s.checkConcurrency,
       'checkTimeoutMs': s.checkTimeoutMs,

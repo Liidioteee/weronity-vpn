@@ -13,6 +13,7 @@ import '../data/pool_repository.dart';
 import '../data/settings_repository.dart';
 import '../domain/node.dart';
 import 'bundles.dart';
+import 'candidates.dart';
 import 'custom_keys.dart';
 
 /// Hive boxes — opened in `main()` and injected via [ProviderScope.overrides].
@@ -73,6 +74,8 @@ class SettingsNotifier extends Notifier<Settings> {
       _mutate(state.copyWith(connectionMode: v));
   Future<void> setProxyPort(int v) =>
       _mutate(state.copyWith(proxyPort: v.clamp(1024, 65535)));
+  Future<void> setStrictRoute(bool v) =>
+      _mutate(state.copyWith(strictRoute: v));
   Future<void> setCloseAction(WindowCloseAction v) =>
       _mutate(state.copyWith(closeAction: v));
   Future<void> setCheckConcurrency(int v) =>
@@ -175,6 +178,10 @@ final connectionControllerProvider = ChangeNotifierProvider<ConnectionEngine>(
         core: core,
         modeOf: () => ref.read(settingsProvider).connectionMode,
         portOf: () => ref.read(settingsProvider).proxyPort,
+        strictRouteOf: () => ref.read(settingsProvider).strictRoute,
+        // read (not watch): the pool refreshes every 30 min and must never
+        // rebuild the engine — the backups are only needed at connect time.
+        backupsFor: (primary) => ref.read(backupCandidatesProvider)(primary),
         onLog: log,
       );
     }
@@ -255,6 +262,17 @@ final sessionRestoreProvider = Provider<void>((ref) {
       controller.select(saved, ref.read(resolveSelectionProvider));
     }
   });
+});
+
+/// Backups preloaded into the selector group next to the chosen node, so a
+/// later switch is a hot-swap rather than a reconnect. See `backupCandidates`.
+final backupCandidatesProvider = Provider<List<Node> Function(Node)>((ref) {
+  final nodes = ref.watch(nodesProvider);
+  return (primary) => backupCandidates(
+        primary,
+        nodes,
+        limit: SingBoxBridge.maxCandidates - 1,
+      );
 });
 
 final resolveSelectionProvider = Provider<Node? Function(Selection)>((ref) {

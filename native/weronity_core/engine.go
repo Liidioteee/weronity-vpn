@@ -100,9 +100,12 @@ var (
 	rateUpBps, rateDnBps float64
 
 	// tagsMu guards the selector's candidate tags and the currently selected one.
-	tagsMu     sync.Mutex
-	activeTags []string
-	activeTag  string
+	// acceptedIdx[i] is the index that tags[i] had in the list Dart sent, so a
+	// backup dropped during sanitisation does not shift the caller's numbering.
+	tagsMu      sync.Mutex
+	activeTags  []string
+	acceptedIdx []int
+	activeTag   string
 )
 
 func engineRunning() bool { return running.Load() }
@@ -151,6 +154,7 @@ func startEngine(configJSON string) (err error) {
 	// first one (that is the node the user actually picked).
 	cleans := make([]map[string]any, 0, len(candidates))
 	var tags []string
+	var accepted []int
 	for i, raw := range candidates {
 		tag := proxyTag
 		if len(candidates) > 1 {
@@ -170,6 +174,7 @@ func startEngine(configJSON string) (err error) {
 		}
 		cleans = append(cleans, san.Outbound)
 		tags = append(tags, tag)
+		accepted = append(accepted, i)
 	}
 	// Every backup was rejected — fall back to the single-node shape so the tag
 	// stays "proxy" and no selector wraps a group of one.
@@ -260,7 +265,7 @@ func startEngine(configJSON string) (err error) {
 	relay = rl
 	socksPort = inner
 	tagsMu.Lock()
-	activeTags = tags
+	activeTags, acceptedIdx = tags, accepted
 	activeTag = tags[0]
 	tagsMu.Unlock()
 	resetTunCounters()
@@ -312,16 +317,20 @@ func stopEngine() {
 	}
 	running.Store(false)
 	tagsMu.Lock()
-	activeTags, activeTag = nil, ""
+	activeTags, acceptedIdx, activeTag = nil, nil, ""
 	tagsMu.Unlock()
 	emit("info", "core", "движок остановлен")
 }
 
-// selectCandidate switches the live selector group to candidate index `i`
-// *without* restarting the engine — in vpn mode that means no tun teardown and
-// therefore no total network drop. Returns an error when the engine is not
-// running, was started with a single node (no selector), or the index is out of
-// range; the caller then falls back to stop/start.
+// selectCandidate switches the live selector group to the candidate that had
+// index `i` in the list passed to wrnStart, *without* restarting the engine —
+// in vpn mode that means no tun teardown and therefore no total network drop.
+//
+// `i` is the caller's own index: a backup dropped during sanitisation shifts
+// nothing, because the mapping to the selector's tags is kept here. Returns an
+// error when the engine is not running, was started with a single node (so
+// there is no selector group), or `i` names a candidate that was dropped; the
+// caller then falls back to stop/start.
 func selectCandidate(i int) error {
 	engMu.Lock()
 	b := instance
@@ -332,13 +341,22 @@ func selectCandidate(i int) error {
 
 	tagsMu.Lock()
 	tags := append([]string(nil), activeTags...)
+	orig := append([]int(nil), acceptedIdx...)
 	tagsMu.Unlock()
 	if len(tags) < 2 {
 		return errors.New("engine was started with a single node — no selector group")
 	}
-	if i < 0 || i >= len(tags) {
-		return fmt.Errorf("candidate index %d out of range (have %d)", i, len(tags))
+	pos := -1
+	for p, o := range orig {
+		if o == i {
+			pos = p
+			break
+		}
 	}
+	if pos < 0 {
+		return fmt.Errorf("candidate %d is not part of this session", i)
+	}
+	i = pos
 
 	out, ok := b.Outbound().Outbound(proxyTag)
 	if !ok {
@@ -378,6 +396,7 @@ func statsJSON() string {
 
 	tagsMu.Lock()
 	tag, n := activeTag, len(activeTags)
+	accepted := append([]int(nil), acceptedIdx...)
 	tagsMu.Unlock()
 
 	snap := map[string]any{
@@ -394,6 +413,7 @@ func statsJSON() string {
 		"active_tag":  tag,
 		"candidates":  n,
 		"can_hotswap": n > 1,
+		"accepted":    accepted,
 	}
 	if running.Load() {
 		snap["uptime_ms"] = time.Since(startedAt).Milliseconds()

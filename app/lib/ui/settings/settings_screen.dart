@@ -105,6 +105,18 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (s.connectionMode == ConnectionMode.vpn) ...[
+                const Divider(),
+                SwitchListTile(
+                  title: LabeledHint('Строгая маршрутизация',
+                      hint: hintRecord('strict_route')),
+                  subtitle: const Text(
+                      'Закрывает обходные пути мимо туннеля. Если после '
+                      'включения пропадёт интернет — выключите обратно.'),
+                  value: s.strictRoute,
+                  onChanged: notifier.setStrictRoute,
+                ),
+              ],
               const Divider(),
               ListTile(
                 enabled: s.connectionMode == ConnectionMode.proxy,

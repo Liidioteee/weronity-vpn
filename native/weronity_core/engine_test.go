@@ -273,8 +273,20 @@ func TestHostileBackupIsDroppedNotFatal(t *testing.T) {
 	if err := startEngine(cfg); err != nil {
 		t.Fatalf("a bad backup should not sink the session: %v", err)
 	}
-	if n, _ := statsMap(t)["candidates"].(float64); int(n) != 2 {
-		t.Errorf("candidates = %v, want 2 (the hostile one dropped)", statsMap(t)["candidates"])
+	snap := statsMap(t)
+	if n, _ := snap["candidates"].(float64); int(n) != 2 {
+		t.Errorf("candidates = %v, want 2 (the hostile one dropped)", snap["candidates"])
+	}
+	// The dropped entry must not shift the caller's numbering: index 2 is still
+	// the third node it sent, and index 1 (the one dropped) is simply gone.
+	if err := selectCandidate(2); err != nil {
+		t.Errorf("selecting the caller's index 2: %v", err)
+	}
+	if err := selectCandidate(1); err == nil {
+		t.Error("a dropped candidate must not be selectable")
+	}
+	if tag := statsMap(t)["active_tag"]; tag != nodeTag(1) {
+		t.Errorf("caller index 2 should map to %q, got %v", nodeTag(1), tag)
 	}
 }
 

@@ -13,22 +13,40 @@ import 'native/native_core.dart';
 /// Proxy mode: a local SOCKS/HTTP proxy on `127.0.0.1:<port>`.
 /// VPN mode (Phase 3.3): a `tun` device with `auto_route` — the whole system's
 /// traffic goes through the node; needs admin rights + `wintun.dll` on Windows.
-/// The `select` hot-switch is a quick stop/start — a brief real drop — until a
-/// sing-box selector group lands (3.3b).
+///
+/// Since 3.3b the engine is started with a *candidate set* — the chosen node
+/// plus [backupsFor] backups — which the core wraps in a sing-box `selector`
+/// group. Switching to a node that is already in that group is a hot-swap: no
+/// restart, and in VPN mode no total network drop. Anything else still falls
+/// back to stop/start.
 class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
   SingBoxBridge({
     required this.core,
     required this.modeOf,
     required this.portOf,
+    this.strictRouteOf,
+    this.backupsFor,
     this.onLog,
   });
 
   final NativeCore core;
   final ConnectionMode Function() modeOf;
   final int Function() portOf;
+
+  /// VPN mode only — sing-box `strict_route` on the tun inbound.
+  final bool Function()? strictRouteOf;
+
+  /// Backup nodes to preload alongside the chosen one, best first. They cost
+  /// nothing until used (sing-box builds the outbound but does not dial it),
+  /// and they are what makes a later switch seamless.
+  final List<Node> Function(Node primary)? backupsFor;
+
   final void Function(String level, String tag, String message)? onLog;
 
   static const _historyCap = 600;
+
+  /// How many nodes go into the selector group. The core caps this at 32 too.
+  static const maxCandidates = 16;
 
   ConnectionStatus _status = ConnectionStatus.disconnected;
   Selection _selection = const Selection.auto();
@@ -39,6 +57,11 @@ class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
   bool _switching = false;
   Timer? _poll;
   String? _listen;
+
+  /// The candidate set the running engine was started with, in the order the
+  /// core received it — the index into this list is what [NativeCore
+  /// .selectCandidate] takes.
+  List<Node> _candidates = const [];
 
   @override
   ConnectionStatus get status => _status;
@@ -102,18 +125,7 @@ class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
     }
 
     final mode = modeOf();
-    final rc = core.startNode(
-      node.outbound,
-      mode: mode.wire,
-      listenPort: portOf(),
-      selfTest: mode == ConnectionMode.proxy,
-    );
-    // let the core surface any startup error into the event stream. The TUN
-    // path (Wintun adapter + route table) can take a moment longer.
-    await Future<void>.delayed(Duration(
-      milliseconds: mode == ConnectionMode.vpn ? 400 : 150,
-    ));
-    _drainLogs();
+    final rc = await _start(node, mode);
 
     if (rc != 0 || !core.isRunning()) {
       _status = ConnectionStatus.error;
@@ -134,11 +146,44 @@ class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
     notifyListeners();
   }
 
+  /// Boots the core for [primary] plus its backups and records the candidate
+  /// set. Returns the core's return code.
+  Future<int> _start(Node primary, ConnectionMode mode) async {
+    _candidates = _candidateSet(primary);
+    final rc = core.startNodes(
+      [for (final n in _candidates) n.outbound],
+      mode: mode.wire,
+      listenPort: portOf(),
+      selfTest: mode == ConnectionMode.proxy,
+      strictRoute: strictRouteOf?.call() ?? false,
+    );
+    // Let the core surface any startup error into the event stream. The TUN
+    // path (Wintun adapter + route table) can take a moment longer.
+    await Future<void>.delayed(Duration(
+      milliseconds: mode == ConnectionMode.vpn ? 400 : 150,
+    ));
+    _drainLogs();
+    if (rc != 0) _candidates = const [];
+    return rc;
+  }
+
+  /// [primary] first, then its backups, deduplicated and capped.
+  List<Node> _candidateSet(Node primary) {
+    final out = <Node>[primary];
+    final seen = <String>{primary.id};
+    for (final n in backupsFor?.call(primary) ?? const <Node>[]) {
+      if (out.length >= maxCandidates) break;
+      if (seen.add(n.id)) out.add(n);
+    }
+    return out;
+  }
+
   @override
   Future<void> disconnect() async {
     _poll?.cancel();
     _poll = null;
     _switching = false;
+    _candidates = const [];
     if (core.isRunning()) core.stop();
     _drainLogs();
     if (_status == ConnectionStatus.disconnected) return;
@@ -167,21 +212,26 @@ class SingBoxBridge extends ChangeNotifier implements ConnectionEngine {
     if (next.id == _activeNode?.id) return true;
 
     _switching = true;
-    _log('info', 'route', 'переключение на ${next.tag.isEmpty ? next.endpoint.host : next.tag}…');
+    _log('info', 'route',
+        'переключение на ${next.tag.isEmpty ? next.endpoint.host : next.tag}…');
     notifyListeners();
 
+    // Already in the running selector group? Then this is a hot-swap: no
+    // restart, and in VPN mode no drop of the whole machine's network.
+    final idx = _candidates.indexWhere((n) => n.id == next.id);
+    if (idx >= 0 && core.isRunning() && core.selectCandidate(idx)) {
+      _drainLogs();
+      _switching = false;
+      _activeNode = next;
+      _status = ConnectionStatus.protected;
+      notifyListeners();
+      return true;
+    }
+
+    // Otherwise fall back to stop/start — a real (brief) drop.
     if (core.isRunning()) core.stop();
     final mode = modeOf();
-    final rc = core.startNode(
-      next.outbound,
-      mode: mode.wire,
-      listenPort: portOf(),
-      selfTest: mode == ConnectionMode.proxy,
-    );
-    await Future<void>.delayed(Duration(
-      milliseconds: mode == ConnectionMode.vpn ? 400 : 150,
-    ));
-    _drainLogs();
+    final rc = await _start(next, mode);
     _switching = false;
 
     if (rc != 0 || !core.isRunning()) {
