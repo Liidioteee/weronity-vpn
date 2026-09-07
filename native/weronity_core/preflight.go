@@ -78,7 +78,7 @@ func testNodeJSON(reqJSON string) string {
 		per = 7 * time.Second
 	}
 
-	san, err := sanitizeOutbound(req.Outbound)
+	san, err := sanitizeOutbound(req.Outbound, proxyTag)
 	if err != nil {
 		return probeSummaryErr("rejected outbound: " + err.Error())
 	}
@@ -86,7 +86,7 @@ func testNodeJSON(reqJSON string) string {
 	if err != nil {
 		return probeSummaryErr(err.Error())
 	}
-	raw, err := buildSingBoxConfig(san.Outbound, port, "warn")
+	raw, err := buildSingBoxConfig([]map[string]any{san.Outbound}, port, "warn")
 	if err != nil {
 		return probeSummaryErr("config: " + err.Error())
 	}

@@ -95,6 +95,7 @@ extern int wrnStop(void);
 extern int wrnIsRunning(void);
 extern int wrnIsElevated(void);
 extern int wrnRelaunchElevated(void);
+extern int wrnSelectCandidate(int i);
 extern char* wrnStatsJSON(void);
 extern char* wrnTestNode(char* reqJSON);
 extern char* wrnDrainEvents(void);

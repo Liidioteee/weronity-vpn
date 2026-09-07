@@ -212,9 +212,10 @@ func pick(src map[string]any, fields []string, objAllow map[string][]string) map
 	return out
 }
 
-// sanitizeOutbound rebuilds a single proxy outbound from an allowlist and forces
-// tag="proxy". It never returns the input map.
-func sanitizeOutbound(raw map[string]any) (*SanitizeResult, error) {
+// sanitizeOutbound rebuilds a single proxy outbound from an allowlist and gives
+// it the caller-chosen `tag` (never one the node asked for). It never returns
+// the input map.
+func sanitizeOutbound(raw map[string]any, tag string) (*SanitizeResult, error) {
 	if raw == nil {
 		return nil, errors.New("empty outbound")
 	}
@@ -247,7 +248,7 @@ func sanitizeOutbound(raw map[string]any) (*SanitizeResult, error) {
 
 	clean := pick(raw, fields, objAllow)
 	clean["type"] = typeVal
-	clean["tag"] = "proxy"
+	clean["tag"] = tag
 	// Resolve the proxy endpoint's own hostname via the local resolver, never
 	// through the (not-yet-connected) proxy itself.
 	clean["domain_resolver"] = "dns-local"
@@ -274,7 +275,21 @@ func sanitizeOutbound(raw map[string]any) (*SanitizeResult, error) {
 
 // StartConfig is the JSON contract passed from Dart to wrnStart.
 type StartConfig struct {
+	// Outbound is the single node to connect through. Legacy/simple form; when
+	// Outbounds is non-empty it is ignored.
 	Outbound map[string]any `json:"outbound"`
+
+	// Outbounds is the *candidate set*: the node to use first, followed by
+	// backups. They all become `node-<i>` outbounds under a `selector` group
+	// tagged "proxy", so wrnSelectOutbound can hot-swap between them without
+	// tearing the tunnel (and, in vpn mode, the whole network) down.
+	Outbounds []map[string]any `json:"outbounds"`
+
+	// StrictRoute enables sing-box's anti-leak strict routing on the tun
+	// inbound (vpn mode only). Off by default — it is the setting most likely
+	// to leave a machine with "no internet" if something else on the box
+	// already owns the routing table.
+	StrictRoute bool `json:"strict_route"`
 
 	// Mode: "proxy" (default) exposes a local SOCKS/HTTP proxy on
 	// 127.0.0.1:<listen_port>; "vpn" captures all traffic via a TUN device
@@ -310,6 +325,17 @@ func (c StartConfig) listenPort() int {
 	return defaultProxyPort
 }
 
+// nodes returns the candidate outbounds in priority order.
+func (c StartConfig) nodes() []map[string]any {
+	if len(c.Outbounds) > 0 {
+		return c.Outbounds
+	}
+	if c.Outbound != nil {
+		return []map[string]any{c.Outbound}
+	}
+	return nil
+}
+
 func (c StartConfig) selfTestEnabled() bool { return c.SelfTest == nil || *c.SelfTest }
 
 func (c StartConfig) selfTestURL() string {
@@ -329,8 +355,13 @@ func (c StartConfig) logLevel() string {
 }
 
 // dnsBlock is shared by both modes: DoH through the tunnel, plus a local
-// resolver used only for the proxy endpoint's own hostname.
-func dnsBlock() map[string]any {
+// resolver used only for the proxy endpoints' own hostnames. `nodeTags` are the
+// outbound tags whose own DNS must never loop back through the tunnel.
+func dnsBlock(nodeTags []string) map[string]any {
+	viaLocal := make([]any, 0, len(nodeTags))
+	for _, t := range nodeTags {
+		viaLocal = append(viaLocal, t)
+	}
 	return map[string]any{
 		"servers": []any{
 			map[string]any{
@@ -341,7 +372,7 @@ func dnsBlock() map[string]any {
 		},
 		"rules": []any{
 			map[string]any{
-				"outbound": []any{"proxy"},
+				"outbound": viaLocal,
 				"server":   "dns-local",
 			},
 		},
@@ -351,28 +382,71 @@ func dnsBlock() map[string]any {
 	}
 }
 
+// nodeTag is the outbound tag of the i-th candidate node inside a selector group.
+func nodeTag(i int) string { return fmt.Sprintf("node-%d", i) }
+
+// proxyTag is the tag the route/final and the DNS detour always point at. It is
+// either the single node itself or the selector group over all candidates.
+const proxyTag = "proxy"
+
+// buildOutbounds turns the sanitised candidate list into the config's
+// `outbounds` array plus the tags whose own DNS must stay local.
+//
+//	1 candidate  -> [node(tag=proxy), direct]                  (as before 3.3b)
+//	N candidates -> [node-0 … node-N-1, selector(tag=proxy), direct]
+//
+// The caller must already have sanitised each candidate with the matching tag.
+func buildOutbounds(cleans []map[string]any) (outbounds []any, nodeTags []string, err error) {
+	if len(cleans) == 0 {
+		return nil, nil, errors.New("no node outbound")
+	}
+	if len(cleans) == 1 {
+		return []any{
+			cleans[0],
+			map[string]any{"type": "direct", "tag": "direct"},
+		}, []string{proxyTag}, nil
+	}
+	tags := make([]any, 0, len(cleans))
+	outbounds = make([]any, 0, len(cleans)+2)
+	for i, c := range cleans {
+		outbounds = append(outbounds, c)
+		tags = append(tags, nodeTag(i))
+		nodeTags = append(nodeTags, nodeTag(i))
+	}
+	outbounds = append(outbounds, map[string]any{
+		"type":                        "selector",
+		"tag":                         proxyTag,
+		"outbounds":                   tags,
+		"default":                     nodeTag(0),
+		"interrupt_exist_connections": true,
+	})
+	outbounds = append(outbounds, map[string]any{"type": "direct", "tag": "direct"})
+	return outbounds, nodeTags, nil
+}
+
 // buildSingBoxConfig assembles the proxy-mode config: one loopback mixed inbound,
-// no control API. Everything except the single sanitised proxy outbound is fixed.
-func buildSingBoxConfig(clean map[string]any, socksPort int, logLevel string) ([]byte, error) {
+// no control API. Everything except the sanitised proxy outbounds is fixed.
+func buildSingBoxConfig(cleans []map[string]any, socksPort int, logLevel string) ([]byte, error) {
 	if socksPort <= 0 || socksPort > 65535 {
 		return nil, fmt.Errorf("bad socks port %d", socksPort)
 	}
+	outs, nodeTags, err := buildOutbounds(cleans)
+	if err != nil {
+		return nil, err
+	}
 	cfg := map[string]any{
 		"log": map[string]any{"level": logLevel, "timestamp": true},
-		"dns": dnsBlock(),
+		"dns": dnsBlock(nodeTags),
 		"inbounds": []any{
 			map[string]any{
 				"type": "mixed", "tag": "socks-in",
 				"listen": "127.0.0.1", "listen_port": socksPort,
 			},
 		},
-		"outbounds": []any{
-			clean,
-			map[string]any{"type": "direct", "tag": "direct"},
-		},
+		"outbounds": outs,
 		"route": map[string]any{
 			"rules":                   []any{},
-			"final":                   "proxy",
+			"final":                   proxyTag,
 			"auto_detect_interface":   false,
 			"default_domain_resolver": "dns-local",
 		},
@@ -393,6 +467,10 @@ const (
 	tunAddr4 = "172.19.0.1/30"
 	tunAddr6 = "fdfe:dcba:9876::1/126"
 	tunMTU   = 1500
+
+	// tunInterfaceName is fixed so the OS-level byte counters (ifstat_*.go) can
+	// find the adapter without guessing.
+	tunInterfaceName = "weronity0"
 )
 
 // buildTunConfig assembles the VPN-mode config: a single `tun` inbound with
@@ -404,31 +482,36 @@ const (
 // go out the physical interface, not back into the tun) is handled by sing-box:
 // `auto_route` marks the engine's own sockets and `auto_detect_interface`
 // binds them to the default interface.
-func buildTunConfig(clean map[string]any, logLevel string) ([]byte, error) {
+func buildTunConfig(cleans []map[string]any, logLevel string, strictRoute bool) ([]byte, error) {
+	outs, nodeTags, err := buildOutbounds(cleans)
+	if err != nil {
+		return nil, err
+	}
 	cfg := map[string]any{
 		"log": map[string]any{"level": logLevel, "timestamp": true},
-		"dns": dnsBlock(),
+		"dns": dnsBlock(nodeTags),
 		"inbounds": []any{
 			map[string]any{
-				"type":         "tun",
-				"tag":          "tun-in",
-				"address":      []any{tunAddr4, tunAddr6},
-				"mtu":          tunMTU,
-				"auto_route":   true,
-				"strict_route": false, // opt-in later; false avoids Windows "no internet" edge cases
+				"type":           "tun",
+				"tag":            "tun-in",
+				"interface_name": tunInterfaceName,
+				"address":        []any{tunAddr4, tunAddr6},
+				"mtu":            tunMTU,
+				"auto_route":     true,
+				// strict_route closes the leak paths auto_route leaves open, but
+				// it can also strand a machine whose routing is already owned by
+				// something else — so it is opt-in from Settings.
+				"strict_route": strictRoute,
 				"stack":        "gvisor",
 			},
 		},
-		"outbounds": []any{
-			clean,
-			map[string]any{"type": "direct", "tag": "direct"},
-		},
+		"outbounds": outs,
 		"route": map[string]any{
 			"rules": []any{
 				map[string]any{"action": "sniff"},
 				map[string]any{"protocol": "dns", "action": "hijack-dns"},
 			},
-			"final":                   "proxy",
+			"final":                   proxyTag,
 			"auto_detect_interface":   true,
 			"default_domain_resolver": "dns-local",
 		},
@@ -492,17 +575,67 @@ func assertConfigSafe(raw []byte, mode string) error {
 			return fmt.Errorf("inbound listen %q is not a loopback address", *in.Listen)
 		}
 	}
-	tags := make(map[string]struct{})
-	for _, o := range cfg.Outbounds {
-		tags[o.Tag] = struct{}{}
+	return assertOutboundsSafe(cfg.Outbounds)
+}
+
+// assertOutboundsSafe enforces the only two shapes we ever generate:
+//
+//	[proxy(<protocol>), direct]                        — single candidate
+//	[node-0 … node-N-1, proxy(selector), direct]       — candidate set
+//
+// Anything else — an extra tag, a second selector, a node whose type is not an
+// allowed proxy protocol, a `direct`/`block` smuggled in as a node — is refused.
+func assertOutboundsSafe(outs []struct {
+	Type string `json:"type"`
+	Tag  string `json:"tag"`
+},
+) error {
+	if len(outs) < 2 {
+		return fmt.Errorf("expected at least 2 outbounds, got %d", len(outs))
 	}
-	for _, want := range []string{"proxy", "direct"} {
-		if _, ok := tags[want]; !ok {
-			return fmt.Errorf("generated config missing the %q outbound", want)
+	seen := make(map[string]struct{}, len(outs))
+	nodes := 0
+	var haveProxy, haveDirect bool
+	for _, o := range outs {
+		if _, dup := seen[o.Tag]; dup {
+			return fmt.Errorf("duplicate outbound tag %q", o.Tag)
+		}
+		seen[o.Tag] = struct{}{}
+		switch {
+		case o.Tag == "direct":
+			if o.Type != "direct" {
+				return fmt.Errorf("the %q outbound has type %q", o.Tag, o.Type)
+			}
+			haveDirect = true
+		case o.Tag == proxyTag:
+			// Either the single node itself, or the selector over the candidates.
+			if o.Type != "selector" {
+				if _, ok := allowedOutboundTypes[o.Type]; !ok {
+					return fmt.Errorf("the %q outbound has disallowed type %q", o.Tag, o.Type)
+				}
+				nodes++
+			}
+			haveProxy = true
+		case o.Tag == nodeTag(nodes):
+			if _, ok := allowedOutboundTypes[o.Type]; !ok {
+				return fmt.Errorf("candidate %q has disallowed type %q", o.Tag, o.Type)
+			}
+			nodes++
+		default:
+			return fmt.Errorf("unexpected outbound tag %q", o.Tag)
 		}
 	}
-	if len(cfg.Outbounds) != 2 {
-		return fmt.Errorf("expected exactly 2 outbounds, got %d", len(cfg.Outbounds))
+	if !haveProxy {
+		return errors.New(`generated config missing the "proxy" outbound`)
+	}
+	if !haveDirect {
+		return errors.New(`generated config missing the "direct" outbound`)
+	}
+	if nodes == 0 {
+		return errors.New("generated config has no node outbound")
+	}
+	if len(outs) != nodes+2 && len(outs) != 2 {
+		return fmt.Errorf("expected %d outbounds, got %d", nodes+2, len(outs))
 	}
 	return nil
 }

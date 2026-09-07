@@ -17,7 +17,7 @@ func mustJSON(t *testing.T, s string) map[string]any {
 
 func TestSanitizeRejectsNonProxyTypes(t *testing.T) {
 	for _, ty := range []string{"direct", "block", "dns", "selector", "urltest", "socks", "http", "tor", "ssh", "wireguard", ""} {
-		_, err := sanitizeOutbound(map[string]any{"type": ty, "server": "x", "server_port": 1})
+		_, err := sanitizeOutbound(map[string]any{"type": ty, "server": "x", "server_port": 1}, proxyTag)
 		if err == nil {
 			t.Errorf("type %q should be rejected", ty)
 		}
@@ -52,7 +52,7 @@ func TestSanitizeForcesTagAndDropsDangerousKeys(t *testing.T) {
 		"transport": {"type":"ws","path":"/x","headers":{"Host":"a.com"},"early_data_command":"rm -rf /"}
 	}`)
 
-	res, err := sanitizeOutbound(raw)
+	res, err := sanitizeOutbound(raw, proxyTag)
 	if err != nil {
 		t.Fatalf("sanitize: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestSanitizePreservesTransportHeaders(t *testing.T) {
 		}
 	}`)
 
-	res, err := sanitizeOutbound(raw)
+	res, err := sanitizeOutbound(raw, proxyTag)
 	if err != nil {
 		t.Fatalf("sanitize: %v", err)
 	}
@@ -165,23 +165,23 @@ func TestSanitizeHeadersCap(t *testing.T) {
 }
 
 func TestSanitizeRequiresServerAndPort(t *testing.T) {
-	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "password": "x"}); err == nil {
+	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "password": "x"}, proxyTag); err == nil {
 		t.Error("missing server must be rejected")
 	}
-	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "server": "h", "password": "x"}); err == nil {
+	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "server": "h", "password": "x"}, proxyTag); err == nil {
 		t.Error("missing server_port must be rejected")
 	}
-	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "server": "h", "server_port": 443.0, "password": "x"}); err != nil {
+	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "server": "h", "server_port": 443.0, "password": "x"}, proxyTag); err != nil {
 		t.Errorf("valid trojan rejected: %v", err)
 	}
 }
 
 func TestBuildConfigIsLoopbackOnlyAndApiFree(t *testing.T) {
-	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`))
+	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`), proxyTag)
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := buildSingBoxConfig(san.Outbound, 10808, "info")
+	raw, err := buildSingBoxConfig([]map[string]any{san.Outbound}, 10808, "info")
 	if err != nil {
 		t.Fatalf("buildSingBoxConfig: %v", err)
 	}
@@ -211,11 +211,11 @@ func TestBuildConfigIsLoopbackOnlyAndApiFree(t *testing.T) {
 }
 
 func TestBuildTunConfigShape(t *testing.T) {
-	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`))
+	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`), proxyTag)
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := buildTunConfig(san.Outbound, "info")
+	raw, err := buildTunConfig([]map[string]any{san.Outbound}, "info", false)
 	if err != nil {
 		t.Fatalf("buildTunConfig: %v", err)
 	}
@@ -267,12 +267,12 @@ func TestAssertConfigSafeCatchesTampering(t *testing.T) {
 	}
 
 	badProxy := []string{
-		`{"inbounds":[{"type":"mixed","listen":"0.0.0.0","listen_port":1}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
-		`{"experimental":{"clash_api":{}},"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
-		`{"inbounds":[{"listen":"127.0.0.1"},{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
-		`{"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"}]}`,
+		`{"inbounds":[{"type":"mixed","listen":"0.0.0.0","listen_port":1}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
+		`{"experimental":{"clash_api":{}},"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
+		`{"inbounds":[{"listen":"127.0.0.1"},{"listen":"127.0.0.1"}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
+		`{"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"type":"trojan","tag":"proxy"}]}`,
 		// a tun inbound must not pass as proxy mode
-		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 	}
 	for i, b := range badProxy {
 		if err := assertConfigSafe([]byte(b), "proxy"); err == nil {
@@ -282,15 +282,15 @@ func TestAssertConfigSafeCatchesTampering(t *testing.T) {
 
 	badTun := []string{
 		// tun with a listen address (leak)
-		`{"inbounds":[{"type":"tun","listen":"0.0.0.0","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"inbounds":[{"type":"tun","listen":"0.0.0.0","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 		// not a tun inbound
-		`{"inbounds":[{"type":"mixed","listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"inbounds":[{"type":"mixed","listen":"127.0.0.1"}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 		// auto_route missing
-		`{"inbounds":[{"type":"tun"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"inbounds":[{"type":"tun"}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 		// experimental block
-		`{"experimental":{"v2ray_api":{}},"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"experimental":{"v2ray_api":{}},"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 		// missing direct outbound
-		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"}]}`,
+		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"}]}`,
 	}
 	for i, b := range badTun {
 		if err := assertConfigSafe([]byte(b), "vpn"); err == nil {

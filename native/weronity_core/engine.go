@@ -14,13 +14,19 @@ import (
 
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/include"
+	"github.com/sagernet/sing-box/protocol/group"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	singjson "github.com/sagernet/sing/common/json"
 	"golang.org/x/net/proxy"
 )
 
-const coreVersion = "weronity-core 0.2.0 (sing-box v1.14.0)"
+const coreVersion = "weronity-core 0.3.0 (sing-box v1.14.0)"
+
+// maxCandidates caps the selector group. Each candidate is a constructed (but
+// not dialed) outbound, so the cost is small — this only guards against a
+// runaway list from Dart.
+const maxCandidates = 32
 
 // ping is the FFI marshalling smoke test: x -> x+1.
 func ping(x int) int { return x + 1 }
@@ -92,6 +98,11 @@ var (
 	rateAt               time.Time
 	rateUp, rateDown     int64
 	rateUpBps, rateDnBps float64
+
+	// tagsMu guards the selector's candidate tags and the currently selected one.
+	tagsMu     sync.Mutex
+	activeTags []string
+	activeTag  string
 )
 
 func engineRunning() bool { return running.Load() }
@@ -125,19 +136,56 @@ func startEngine(configJSON string) (err error) {
 	}
 	vpn := sc.mode() == "vpn"
 
-	san, e := sanitizeOutbound(sc.Outbound)
-	if e != nil {
-		emit("error", "core", "rejected node outbound: "+e.Error())
-		return e
+	candidates := sc.nodes()
+	if len(candidates) == 0 {
+		emit("error", "core", "rejected node outbound: empty outbound")
+		return errors.New("empty outbound")
 	}
-	for _, w := range san.Warnings {
-		emit("warn", "core", w)
+	if len(candidates) > maxCandidates {
+		candidates = candidates[:maxCandidates]
+	}
+
+	// Sanitise every candidate. A single one keeps tag "proxy" (no selector);
+	// several become node-0…node-N-1 under a selector group tagged "proxy".
+	// A candidate we cannot sanitise is dropped, not fatal — unless it is the
+	// first one (that is the node the user actually picked).
+	cleans := make([]map[string]any, 0, len(candidates))
+	var tags []string
+	for i, raw := range candidates {
+		tag := proxyTag
+		if len(candidates) > 1 {
+			tag = nodeTag(len(cleans))
+		}
+		san, se := sanitizeOutbound(raw, tag)
+		if se != nil {
+			if i == 0 {
+				emit("error", "core", "rejected node outbound: "+se.Error())
+				return se
+			}
+			emit("warn", "core", fmt.Sprintf("кандидат #%d отброшен: %s", i, se.Error()))
+			continue
+		}
+		for _, w := range san.Warnings {
+			emit("warn", "core", w)
+		}
+		cleans = append(cleans, san.Outbound)
+		tags = append(tags, tag)
+	}
+	// Every backup was rejected — fall back to the single-node shape so the tag
+	// stays "proxy" and no selector wraps a group of one.
+	if len(cleans) == 1 && tags[0] != proxyTag {
+		san, se := sanitizeOutbound(candidates[0], proxyTag)
+		if se != nil {
+			return se
+		}
+		cleans[0], tags[0] = san.Outbound, proxyTag
 	}
 
 	var raw []byte
+	var e error
 	var inner int
 	if vpn {
-		raw, e = buildTunConfig(san.Outbound, sc.logLevel())
+		raw, e = buildTunConfig(cleans, sc.logLevel(), sc.StrictRoute)
 	} else {
 		inner = sc.SocksPort
 		if inner == 0 {
@@ -146,7 +194,7 @@ func startEngine(configJSON string) (err error) {
 				return e
 			}
 		}
-		raw, e = buildSingBoxConfig(san.Outbound, inner, sc.logLevel())
+		raw, e = buildSingBoxConfig(cleans, inner, sc.logLevel())
 	}
 	if e != nil {
 		emit("error", "core", "config generation failed: "+e.Error())
@@ -211,6 +259,11 @@ func startEngine(configJSON string) (err error) {
 	cancelBox = cancel
 	relay = rl
 	socksPort = inner
+	tagsMu.Lock()
+	activeTags = tags
+	activeTag = tags[0]
+	tagsMu.Unlock()
+	resetTunCounters()
 	startedAt = time.Now()
 	pingMs.Store(0)
 	resetRate()
@@ -258,7 +311,52 @@ func stopEngine() {
 		cancelBox = nil
 	}
 	running.Store(false)
+	tagsMu.Lock()
+	activeTags, activeTag = nil, ""
+	tagsMu.Unlock()
 	emit("info", "core", "движок остановлен")
+}
+
+// selectCandidate switches the live selector group to candidate index `i`
+// *without* restarting the engine — in vpn mode that means no tun teardown and
+// therefore no total network drop. Returns an error when the engine is not
+// running, was started with a single node (no selector), or the index is out of
+// range; the caller then falls back to stop/start.
+func selectCandidate(i int) error {
+	engMu.Lock()
+	b := instance
+	engMu.Unlock()
+	if !running.Load() || b == nil {
+		return errors.New("engine is not running")
+	}
+
+	tagsMu.Lock()
+	tags := append([]string(nil), activeTags...)
+	tagsMu.Unlock()
+	if len(tags) < 2 {
+		return errors.New("engine was started with a single node — no selector group")
+	}
+	if i < 0 || i >= len(tags) {
+		return fmt.Errorf("candidate index %d out of range (have %d)", i, len(tags))
+	}
+
+	out, ok := b.Outbound().Outbound(proxyTag)
+	if !ok {
+		return errors.New("no proxy outbound")
+	}
+	sel, ok := out.(*group.Selector)
+	if !ok {
+		return errors.New("the proxy outbound is not a selector group")
+	}
+	if !sel.SelectOutbound(tags[i]) {
+		return fmt.Errorf("selector refused %q", tags[i])
+	}
+
+	tagsMu.Lock()
+	activeTag = tags[i]
+	tagsMu.Unlock()
+	emit("info", "core", fmt.Sprintf("узел переключён на %s без разрыва туннеля", tags[i]))
+	return nil
 }
 
 func statsJSON() string {
@@ -266,30 +364,36 @@ func statsJSON() string {
 	st := selfTest
 	selfMu.Unlock()
 
+	// proxy mode counts at the relay; vpn mode has no relay, so we read the tun
+	// adapter's own octet counters from the OS (ifstat_*.go).
 	var up, down int64
-	if relay != nil {
+	listen := fmt.Sprintf("127.0.0.1:%d", publicPort)
+	if engineMode == "vpn" {
+		listen = "tun"
+		up, down = tunCounters()
+	} else if relay != nil {
 		up, down = relay.upBytes(), relay.downBytes()
 	}
 	upBps, dnBps := sampleRate(up, down)
 
-	// In VPN mode there is no local port and no relay — byte counters for the
-	// tun inbound arrive in 3.3b (clash-api traffic stats).
-	listen := fmt.Sprintf("127.0.0.1:%d", publicPort)
-	if engineMode == "vpn" {
-		listen = "tun"
-	}
+	tagsMu.Lock()
+	tag, n := activeTag, len(activeTags)
+	tagsMu.Unlock()
 
 	snap := map[string]any{
-		"running":    running.Load(),
-		"mode":       engineMode,
-		"listen":     listen,
-		"socks_port": publicPort,
-		"up_bytes":   up,
-		"down_bytes": down,
-		"up_bps":     upBps,
-		"down_bps":   dnBps,
-		"ping_ms":    pingMs.Load(),
-		"self_test":  st,
+		"running":     running.Load(),
+		"mode":        engineMode,
+		"listen":      listen,
+		"socks_port":  publicPort,
+		"up_bytes":    up,
+		"down_bytes":  down,
+		"up_bps":      upBps,
+		"down_bps":    dnBps,
+		"ping_ms":     pingMs.Load(),
+		"self_test":   st,
+		"active_tag":  tag,
+		"candidates":  n,
+		"can_hotswap": n > 1,
 	}
 	if running.Load() {
 		snap["uptime_ms"] = time.Since(startedAt).Milliseconds()

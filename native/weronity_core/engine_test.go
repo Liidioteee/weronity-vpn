@@ -175,3 +175,161 @@ func TestDoubleStartIsNoop(t *testing.T) {
 		t.Fatalf("second start should be a silent no-op, got: %v", err)
 	}
 }
+
+// The hot-swap path against a *real* sing-box: three unroutable candidates
+// become a selector group, and selectCandidate moves between them without the
+// engine restarting. Proxy mode, so no tun and no privileges are needed — the
+// selector machinery is identical in vpn mode.
+func TestSelectorHotSwapWithRealSingBox(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+			{"type":"trojan","server":"192.0.2.2","server_port":443,"password":"b"},
+			{"type":"trojan","server":"192.0.2.3","server_port":443,"password":"c"}
+		],
+		"mode": "proxy",
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine with a candidate set: %v", err)
+	}
+
+	snap := statsMap(t)
+	if snap["can_hotswap"] != true {
+		t.Fatalf("stats.can_hotswap = %v, want true", snap["can_hotswap"])
+	}
+	if n, _ := snap["candidates"].(float64); int(n) != 3 {
+		t.Errorf("stats.candidates = %v, want 3", snap["candidates"])
+	}
+	if snap["active_tag"] != nodeTag(0) {
+		t.Errorf("stats.active_tag = %v, want %q", snap["active_tag"], nodeTag(0))
+	}
+
+	if err := selectCandidate(2); err != nil {
+		t.Fatalf("hot-swap to candidate 2: %v", err)
+	}
+	if !engineRunning() {
+		t.Fatal("hot-swap must not stop the engine")
+	}
+	if tag := statsMap(t)["active_tag"]; tag != nodeTag(2) {
+		t.Errorf("after swap active_tag = %v, want %q", tag, nodeTag(2))
+	}
+
+	if err := selectCandidate(3); err == nil {
+		t.Error("an out-of-range candidate should be refused")
+	}
+	if err := selectCandidate(-1); err == nil {
+		t.Error("a negative candidate should be refused")
+	}
+	// The refusals must not have disturbed the live selection.
+	if tag := statsMap(t)["active_tag"]; tag != nodeTag(2) {
+		t.Errorf("a refused swap changed the selection to %v", tag)
+	}
+}
+
+// A single-node session has no selector group, so hot-swap must refuse and let
+// the caller fall back to stop/start.
+func TestHotSwapRefusedForASingleNodeSession(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.9","server_port":443,"password":"x"},"listen_port":0,"self_test":false}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine: %v", err)
+	}
+	snap := statsMap(t)
+	if snap["can_hotswap"] != false {
+		t.Errorf("stats.can_hotswap = %v, want false", snap["can_hotswap"])
+	}
+	if snap["active_tag"] != proxyTag {
+		t.Errorf("stats.active_tag = %v, want %q", snap["active_tag"], proxyTag)
+	}
+	if err := selectCandidate(0); err == nil {
+		t.Error("hot-swap without a selector group should be refused")
+	}
+	if !engineRunning() {
+		t.Error("a refused hot-swap must leave the engine running")
+	}
+}
+
+// A backup we cannot sanitise is dropped, but the node the user picked is not.
+func TestHostileBackupIsDroppedNotFatal(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+			{"type":"direct","server":"192.0.2.2","server_port":443},
+			{"type":"trojan","server":"192.0.2.3","server_port":443,"password":"c"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("a bad backup should not sink the session: %v", err)
+	}
+	if n, _ := statsMap(t)["candidates"].(float64); int(n) != 2 {
+		t.Errorf("candidates = %v, want 2 (the hostile one dropped)", statsMap(t)["candidates"])
+	}
+}
+
+// …but a hostile *first* candidate is the node the user chose, so it is fatal.
+func TestHostileFirstCandidateIsFatal(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"direct","server":"192.0.2.1","server_port":443},
+			{"type":"trojan","server":"192.0.2.3","server_port":443,"password":"c"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err == nil {
+		t.Error("a hostile primary node must be rejected")
+	}
+	if engineRunning() {
+		t.Error("engine should not be running")
+	}
+}
+
+// When every backup is rejected the session degrades to the single-node shape:
+// the remaining node keeps the "proxy" tag and no selector wraps a group of one.
+func TestAllBackupsRejectedFallsBackToSingleNode(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+			{"type":"block"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine: %v", err)
+	}
+	snap := statsMap(t)
+	if snap["active_tag"] != proxyTag {
+		t.Errorf("active_tag = %v, want %q", snap["active_tag"], proxyTag)
+	}
+	if snap["can_hotswap"] != false {
+		t.Errorf("can_hotswap = %v, want false", snap["can_hotswap"])
+	}
+}
+
+func statsMap(t *testing.T) map[string]any {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal([]byte(statsJSON()), &m); err != nil {
+		t.Fatalf("statsJSON invalid: %v", err)
+	}
+	return m
+}
