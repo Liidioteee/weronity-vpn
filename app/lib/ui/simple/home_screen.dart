@@ -9,6 +9,7 @@ import '../../core/singbox_bridge.dart';
 import '../../data/pool_repository.dart';
 import '../../domain/country_names.dart';
 import '../../state/bundles.dart';
+import '../../state/monitor.dart';
 import '../../state/providers.dart';
 import '../common/flag.dart';
 import '../common/format.dart';
@@ -21,8 +22,20 @@ class HomeScreen extends ConsumerWidget {
 
   Future<void> _toggle(WidgetRef ref) async {
     final controller = ref.read(connectionControllerProvider);
-    final resolve = ref.read(resolveSelectionProvider);
-    await controller.toggle(resolve);
+    if (controller.isActive) {
+      await controller.disconnect();
+      return;
+    }
+
+    var resolve = ref.read(resolveSelectionProvider);
+    // "⚡ Авто" ranks by the collector's ping, which does not mean the node
+    // works from here. Find one that actually answers before we connect.
+    if (controller.selection.isAuto) {
+      final picked = await ref.read(autoConnectPickProvider)();
+      if (picked != null) resolve = (_) => picked;
+    }
+
+    await controller.connect(resolve);
     final active = controller.activeNode;
     if (active != null && controller.status == ConnectionStatus.protected) {
       await ref.read(settingsProvider.notifier).rememberLastGoodNode(active.id);
@@ -32,6 +45,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.watch(connectionControllerProvider);
+    final phase = ref.watch(connectPhaseProvider);
     final poolAsync = ref.watch(poolProvider);
     final proMode = ref.watch(settingsProvider.select((s) => s.proMode));
 
@@ -76,14 +90,18 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: WSpace.xl),
                 Center(
                   child: PowerButton(
-                    status: controller.status,
+                    status: phase == null
+                        ? controller.status
+                        : ConnectionStatus.connecting,
                     flagCode: controller.activeNode?.countryCode,
                     switching: controller.isSwitching,
-                    onTap: () => _toggle(ref),
+                    // Ignore taps while the pre-connect scan runs — a second
+                    // press would start a second scan.
+                    onTap: () => phase == null ? _toggle(ref) : null,
                   ),
                 ),
                 const SizedBox(height: WSpace.xl),
-                _StatusLine(controller: controller),
+                _StatusLine(controller: controller, phase: phase),
                 const SizedBox(height: WSpace.xl),
                 FadeSlideIn(
                   child: _SelectionCard(controller: controller),
@@ -112,12 +130,15 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.controller});
+  const _StatusLine({required this.controller, this.phase});
   final ConnectionEngine controller;
+
+  /// Set while a pre-connect scan is running — see `connectPhaseProvider`.
+  final String? phase;
 
   @override
   Widget build(BuildContext context) {
-    final s = controller.status;
+    final s = phase == null ? controller.status : ConnectionStatus.connecting;
     final color = switch (s) {
       ConnectionStatus.protected => WColors.protected,
       ConnectionStatus.connecting => WColors.connecting,
@@ -125,10 +146,10 @@ class _StatusLine extends StatelessWidget {
       ConnectionStatus.disconnected =>
         Theme.of(context).colorScheme.onSurfaceVariant,
     };
-    final label = controller.isSwitching ? 'Смена локации…' : s.label;
+    final label = phase ??
+        (controller.isSwitching ? 'Смена локации…' : s.label);
     final key = ValueKey<String>(
-      '$s|${controller.isSwitching}|${controller.activeNode?.id}|'
-      '${controller.lastError}',
+      '$label|${controller.activeNode?.id}|${controller.lastError}',
     );
 
     return AnimatedSwitcher(

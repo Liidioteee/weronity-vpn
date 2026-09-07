@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/connection_controller.dart';
 import '../core/singbox_bridge.dart';
 import '../domain/node.dart';
+import 'candidates.dart';
 import 'preflight.dart';
 import 'providers.dart';
 
@@ -211,3 +212,80 @@ Node? _firstGood(
 }
 
 String _name(Node n) => n.tag.isEmpty ? n.endpoint.host : n.tag;
+
+// ---------------------------------------------------------------------------
+//  Verify-before-connect for "⚡ Авто"
+// ---------------------------------------------------------------------------
+
+/// What the app is doing between the user pressing the power button and the
+/// engine actually starting, or `null` when nothing is in flight. The home
+/// screen shows it — a burst scan can take a few seconds, and a power button
+/// that just sits there reads as broken.
+final connectPhaseProvider = StateProvider<String?>((ref) => null);
+
+/// Chooses the node an "⚡ Авто" connect should actually use.
+///
+/// `resolveSelectionProvider` ranks by the *collector's* ping, which says the
+/// node was reachable from a GitHub runner — not that it works from here. Most
+/// of the pool is blocked for a Russian user, so connecting to the
+/// lowest-ping node routinely lands on a dead one and the monitor has to fail
+/// over a few seconds later. This does that search up front instead: a fresh
+/// good probe wins outright, otherwise a short burst scan races the top
+/// candidates and takes the first node that answers.
+///
+/// Falls back to the plain ranking when checking is switched off, when nothing
+/// answers, or when the deadline passes — a connect attempt on a doubtful node
+/// beats refusing to connect at all.
+final autoConnectPickProvider = Provider<Future<Node?> Function()>((ref) {
+  return () async {
+    final resolve = ref.read(resolveSelectionProvider);
+    final fallback = resolve(const Selection.auto());
+    if (fallback == null) return null;
+
+    final nodes = ref.read(nodesProvider);
+    final byId = {for (final n in nodes) n.id: n};
+    final ordered = <String>[
+      fallback.id,
+      for (final n in backupCandidates(fallback, nodes, limit: _autoScanWidth))
+        n.id,
+    ];
+
+    // A recent good result means we already know this one works — no scan
+    // needed, and this holds even when scanning is unavailable below.
+    final probes = ref.read(preflightProvider);
+    final known = _firstGood(ordered, byId, probes);
+    if (known != null && _isFresh(probes[known.id])) return known;
+
+    final settings = ref.read(settingsProvider);
+    if (!settings.autoCheck) return fallback;
+    if (!ref.read(nativeCoreProvider).isAvailable) return fallback;
+
+    final log = ref.read(logControllerProvider);
+    final phase = ref.read(connectPhaseProvider.notifier);
+    phase.state = 'Ищу рабочий узел…';
+    log.add('info', 'route', 'проверяю узлы перед подключением…');
+    try {
+      final found = await ref.read(preflightProvider.notifier).burstFindGood(
+            ordered,
+            {for (final id in ordered) id: byId[id]!.outbound},
+            timeoutMs: (settings.checkTimeoutMs * 0.6).round().clamp(1500, 4000),
+            deadline: _autoScanDeadline,
+          );
+      if (found != null) return byId[found];
+      log.add('warn', 'route',
+          'ни один узел не ответил за ${_autoScanDeadline.inSeconds} с — '
+          'пробую лучший по пингу');
+      return _firstGood(ordered, byId, ref.read(preflightProvider)) ?? fallback;
+    } finally {
+      phase.state = null;
+    }
+  };
+});
+
+/// How many nodes the pre-connect scan is allowed to race through, and how long
+/// the user waits before we just try the best-ranked one anyway.
+const _autoScanWidth = 23;
+const _autoScanDeadline = Duration(seconds: 9);
+
+bool _isFresh(NodeProbe? p) =>
+    p?.at?.isAfter(DateTime.now().subtract(const Duration(minutes: 5))) ?? false;
