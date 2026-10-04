@@ -27,12 +27,12 @@ _NET_MAP: dict[str, Transport] = {
     "h2": "h2",
     "h2mux": "h2",
     "httpupgrade": "httpupgrade",
-    "xhttp": "httpupgrade",
-    "splithttp": "httpupgrade",
-    "kcp": "mkcp",
-    "mkcp": "mkcp",
-    "quic": "quic",
 }
+
+# Xray-only transports. sing-box has no XHTTP/SplitHTTP (they are *not*
+# HTTPUpgrade), no mKCP, and no TCP+HTTP-header obfuscation, so such a node would
+# pass the reachability check and then never carry traffic. Reject at parse time.
+_UNSUPPORTED_NETS = frozenset({"xhttp", "splithttp", "kcp", "mkcp", "quic"})
 
 
 def parse(uri: str) -> ParsedNode:
@@ -45,6 +45,8 @@ def parse(uri: str) -> ParsedNode:
 
     q = flat_qs(query)
     net = q.get("type", "tcp").lower()
+    if net in _UNSUPPORTED_NETS:
+        raise ParseError(f"vless: transport {net!r} is not supported by sing-box")
     if net not in _NET_MAP:
         raise ParseError(f"vless: unknown network type {net!r}")
     transport = _NET_MAP[net]
@@ -74,9 +76,7 @@ def parse(uri: str) -> ParsedNode:
         params["path"] = first(q, "path", default="/")
         params["host_header"] = first(q, "host") or None
     elif transport == "tcp" and q.get("headerType") == "http":
-        params["header_type"] = "http"
-        params["path"] = first(q, "path", default="/")
-        params["host_header"] = first(q, "host") or None
+        raise ParseError("vless: tcp + http header obfuscation is not supported by sing-box")
 
     return ParsedNode(
         protocol="vless",

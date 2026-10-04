@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from ..models import ParsedNode
-from . import hysteria2, shadowsocks, shadowtls, trojan, tuic, vless, vmess
+from . import hysteria2, shadowsocks, trojan, tuic, vless, vmess
 from .common import ParseError
 
-_MODULES = (vless, vmess, trojan, hysteria2, shadowsocks, tuic, shadowtls)
+_MODULES = (vless, vmess, trojan, hysteria2, shadowsocks, tuic)
 
 REGISTRY: dict[str, Callable[[str], ParsedNode]] = {
     scheme: mod.parse for mod in _MODULES for scheme in mod.SCHEMES

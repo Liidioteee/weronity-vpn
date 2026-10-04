@@ -28,6 +28,18 @@ def _add_run(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p.add_argument("--concurrency", type=int, default=64)
     p.add_argument("--recommend-per-country", type=int, default=15)
     p.add_argument("--keep-dead", action="store_true", help="do not drop unreachable nodes")
+    p.add_argument(
+        "--min-nodes",
+        type=int,
+        default=1,
+        help="refuse to write a pool with fewer alive nodes than this (a network "
+        "glitch on the runner must not replace a good pool with an empty one)",
+    )
+    p.add_argument(
+        "--allow-private",
+        action="store_true",
+        help="keep nodes that resolve to loopback/private addresses (local testing)",
+    )
     p.add_argument("--source-run", default=None, help="opaque CI run id for provenance")
     p.add_argument(
         "--offline",
@@ -80,8 +92,18 @@ def cmd_run(args: argparse.Namespace) -> int:
             ping_concurrency=args.concurrency,
             recommend_per_country=args.recommend_per_country,
             keep_dead=args.keep_dead,
+            allow_private=args.allow_private,
         )
     )
+
+    if pool.stats.total < max(1, args.min_nodes):
+        logging.error(
+            "only %d alive nodes (need %d) — refusing to write %s",
+            pool.stats.total,
+            max(1, args.min_nodes),
+            args.out,
+        )
+        return 3
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(

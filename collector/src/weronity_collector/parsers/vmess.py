@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from ..models import Endpoint, ParsedNode, Transport
-from .common import ParseError, b64decode_any, csv_list, require, split_name
+from .common import ParseError, as_int, b64decode_any, csv_list, require, split_name
 
 SCHEMES = ("vmess",)
 
@@ -18,11 +18,11 @@ _NET_MAP: dict[str, Transport] = {
     "gun": "grpc",
     "h2": "h2",
     "http": "h2",
-    "kcp": "mkcp",
-    "mkcp": "mkcp",
-    "quic": "quic",
     "httpupgrade": "httpupgrade",
 }
+
+# See vless.py — transports sing-box cannot speak are rejected, not mislabelled.
+_UNSUPPORTED_NETS = frozenset({"xhttp", "splithttp", "kcp", "mkcp", "quic"})
 
 
 def parse(uri: str) -> ParsedNode:
@@ -45,6 +45,8 @@ def parse(uri: str) -> ParsedNode:
     require(uuid, "vmess: missing 'id'")
 
     net = str(obj.get("net", "tcp")).lower()
+    if net in _UNSUPPORTED_NETS:
+        raise ParseError(f"vmess: transport {net!r} is not supported by sing-box")
     if net not in _NET_MAP:
         raise ParseError(f"vmess: unknown net {net!r}")
     transport = _NET_MAP[net]
@@ -52,7 +54,7 @@ def parse(uri: str) -> ParsedNode:
     tls = str(obj.get("tls", "")).lower()
     params: dict[str, object] = {
         "uuid": uuid,
-        "alter_id": int(obj.get("aid", 0) or 0),
+        "alter_id": as_int(obj.get("aid")),
         "cipher": str(obj.get("scy", "auto") or "auto"),
         "security": "tls" if tls in ("tls", "reality", "xtls") else "none",
         "sni": (str(obj.get("sni") or "") or str(obj.get("host") or "")) or None,
@@ -65,9 +67,7 @@ def parse(uri: str) -> ParsedNode:
     elif transport == "grpc":
         params["service_name"] = str(obj.get("path") or obj.get("serviceName") or "")
     elif transport == "tcp" and str(obj.get("type") or "") == "http":
-        params["header_type"] = "http"
-        params["path"] = str(obj.get("path") or "/")
-        params["host_header"] = str(obj.get("host") or "") or None
+        raise ParseError("vmess: tcp + http header obfuscation is not supported by sing-box")
 
     display = str(obj.get("ps") or "").strip() or name
     return ParsedNode(

@@ -35,6 +35,40 @@ def test_seen_state_tracks_first_and_last_seen() -> None:
     assert round(life_b.stability, 3) == round(1 / 3, 3)
 
 
+def test_stability_counts_runs_since_the_node_appeared() -> None:
+    t0 = datetime(2026, 9, 1, tzinfo=UTC)
+    st = SeenState()
+    for i in range(10):
+        st.observe({"old"}, now=t0 + timedelta(hours=i))
+    # "late" shows up in run 11 and is alive in every run since
+    for i in range(10, 13):
+        st.observe({"old", "late"}, now=t0 + timedelta(hours=i))
+    # "flaky" appeared together with "late" but missed the last two runs
+    st.nodes["flaky"] = {**st.nodes["late"], "seen_runs": 1}
+
+    now = t0 + timedelta(hours=13)
+    assert st.lifetime_for("old", now=now).stability == 1.0
+    assert st.lifetime_for("late", now=now).stability == 1.0  # was 3/13 before
+    assert st.lifetime_for("flaky", now=now).stability == round(1 / 3, 3)
+
+
+def test_legacy_entries_without_first_run_start_at_full_stability() -> None:
+    st = SeenState(runs_total=500)
+    st.nodes["x"] = {
+        "first_seen": "2026-09-01T00:00:00Z",
+        "last_seen": "2026-09-02T00:00:00Z",
+        "seen_runs": 40,
+    }
+    assert st.lifetime_for("x", now=datetime(2026, 9, 2, tzinfo=UTC)).stability == 1.0
+
+
+def test_corrupt_state_file_starts_fresh(tmp_path) -> None:
+    p = tmp_path / "seen.json"
+    p.write_text("{not json", "utf-8")
+    st = SeenState.load(p)
+    assert st.runs_total == 0 and st.nodes == {}
+
+
 def test_seen_state_prunes_stale_nodes() -> None:
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     st = SeenState(window_h=48)

@@ -87,9 +87,6 @@ def build_outbound(node: ParsedNode) -> dict[str, Any]:
         ob["type"] = "shadowsocks"
         ob["method"] = p["method"]
         ob["password"] = p["password"]
-        if p.get("plugin"):
-            ob["plugin"] = p["plugin"]
-            ob["plugin_opts"] = p.get("plugin_opts", "")
     elif node.protocol == "hysteria2":
         ob["type"] = "hysteria2"
         ob["password"] = p["password"]
@@ -105,10 +102,6 @@ def build_outbound(node: ParsedNode) -> dict[str, Any]:
         ob["password"] = p["password"]
         ob["congestion_control"] = p.get("congestion_control", "bbr")
         ob["udp_relay_mode"] = p.get("udp_relay_mode", "native")
-    elif node.protocol == "shadowtls":
-        ob["type"] = "shadowtls"
-        ob["version"] = int(p.get("version", 3))
-        ob["password"] = p.get("password", "")
     else:  # pragma: no cover - Protocol literal is exhaustive
         raise ValueError(f"no outbound builder for {node.protocol!r}")
 

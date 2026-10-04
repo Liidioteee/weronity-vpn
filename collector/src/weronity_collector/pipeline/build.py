@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import ipaddress
 import logging
 from collections import Counter, defaultdict
 from datetime import UTC, datetime
@@ -14,9 +16,46 @@ from .classify import classify
 from .dedup import dedup
 from .geoip import GeoResolver
 from .lifetime import SeenState
-from .ping import PingResult, ping_many
+from .ping import PingResult, PingTarget, ping_many
 
 log = logging.getLogger(__name__)
+
+_QUIC_PROTOCOLS = ("hysteria2", "tuic")
+_MAX_TAG_LEN = 64
+
+
+def _is_public(ip: str | None) -> bool:
+    """False for loopback / private / link-local / reserved addresses.
+
+    A scraped list must not be able to point the collector — or, through the
+    published pool, every client — at somebody's internal network.
+    An unresolved host (``None``) is left to the reachability check.
+    """
+    if ip is None:
+        return True
+    try:
+        return ipaddress.ip_address(ip).is_global
+    except ValueError:
+        return False
+
+
+def _clean_tag(tag: str) -> str:
+    """Scraped display names are free text: drop control chars, collapse, cap."""
+    text = " ".join("".join(ch for ch in tag if ch.isprintable()).split())
+    return text[:_MAX_TAG_LEN]
+
+
+def _ping_target(node: ParsedNode) -> PingTarget:
+    udp = node.protocol in _QUIC_PROTOCOLS
+    obfs = node.params.get("obfs_password") if node.params.get("obfs") == "salamander" else None
+    return PingTarget(
+        host=node.endpoint.host,
+        port=node.endpoint.port,
+        sni=node.sni,
+        want_tls=not udp and node.security in ("tls", "reality"),
+        udp=udp,
+        obfs_password=str(obfs) if obfs else None,
+    )
 
 
 async def build_pool(
@@ -29,6 +68,7 @@ async def build_pool(
     ping_concurrency: int = 64,
     recommend_per_country: int = 15,
     keep_dead: bool = False,
+    allow_private: bool = False,
     now: datetime | None = None,
 ) -> Pool:
     now = now or datetime.now(UTC)
@@ -38,29 +78,36 @@ async def build_pool(
     geo = GeoResolver(geoip_dir)
     geo_by_host: dict[str, Geo] = {}
     try:
+        # DNS is the slow part and getaddrinfo() blocks — resolve the unique hosts
+        # on the default thread pool, then do the (cheap, in-memory) geo lookups.
+        hosts = list({n.endpoint.host for n in dd.nodes})
+        await asyncio.gather(*(asyncio.to_thread(geo.resolve_ip, h) for h in hosts))
+        for host in hosts:
+            geo_by_host[host] = geo.lookup(host)
         for node in dd.nodes:
-            host = node.endpoint.host
-            if host not in geo_by_host:
-                geo_by_host[host] = geo.lookup(host)
-                node.endpoint.resolved_ip = geo.resolve_ip(host)
-            else:
-                node.endpoint.resolved_ip = geo.resolve_ip(host)
+            node.endpoint.resolved_ip = geo.resolve_ip(node.endpoint.host)
     finally:
         geo.close()
 
-    targets = [
-        (n.endpoint.host, n.endpoint.port, n.sni, n.security in ("tls", "reality"))
-        for n in dd.nodes
-    ]
-    pings = await ping_many(targets, timeout_ms=timeout_ms, concurrency=ping_concurrency)
+    candidates = dd.nodes
+    if not allow_private:
+        candidates = [n for n in dd.nodes if _is_public(n.endpoint.resolved_ip)]
+        if len(candidates) != len(dd.nodes):
+            log.info("dropped %d nodes with a non-public address", len(dd.nodes) - len(candidates))
+
+    pings = await ping_many(
+        [_ping_target(n) for n in candidates],
+        timeout_ms=timeout_ms,
+        concurrency=ping_concurrency,
+    )
     checked_at = now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
     alive: list[tuple[ParsedNode, PingResult]] = []
-    for node, res in zip(dd.nodes, pings, strict=True):
+    for node, res in zip(candidates, pings, strict=True):
         ok = res.tcp_ok and res.ping_ms is not None and res.ping_ms <= timeout_ms
         if ok or keep_dead:
             alive.append((node, res))
-    log.info("ping: %d/%d alive", len(alive), len(dd.nodes))
+    log.info("ping: %d/%d alive", len(alive), len(candidates))
 
     seen = SeenState.load(seen_path)
     present_ids = {n.stable_id() for n, _ in alive}
@@ -77,7 +124,7 @@ async def build_pool(
                 id=sid,
                 protocol=node.protocol,
                 transport=node.transport,
-                tag=node.tag,
+                tag=_clean_tag(node.tag) or f"{node.endpoint.host}:{node.endpoint.port}",
                 endpoint=node.endpoint,
                 geo=g,
                 health=Health(
