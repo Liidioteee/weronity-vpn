@@ -32,7 +32,10 @@ def parse_uri(uri: str) -> ParsedNode:
     fn = REGISTRY.get(scheme)
     if fn is None:
         raise ParseError(f"unsupported scheme {scheme!r}")
-    return fn(uri.strip())
+    node = fn(uri.strip())
+    if not 1 <= node.endpoint.port <= 65535:
+        raise ParseError(f"port {node.endpoint.port} out of range")
+    return node
 
 
 def iter_uris(text: str) -> list[str]:

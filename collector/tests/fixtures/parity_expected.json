@@ -1,0 +1,251 @@
+[
+ {
+  "uri": "vless://f8738084-d3e4-457b-a15e-10d85709681f@example-reality.net:443?type=tcp&security=reality&pbk=ABCdefGHIjklMNOpqrstUVWxyz0123456789abcdEFG&sid=a1b2c3&fp=chrome&sni=www.apple.com&flow=xtls-rprx-vision#DE-Reality",
+  "node": {
+   "id": "2ad6c1c664ff",
+   "protocol": "vless",
+   "transport": "tcp",
+   "host": "example-reality.net",
+   "port": 443,
+   "sni": "www.apple.com",
+   "security": "reality",
+   "outbound_type": "vless"
+  }
+ },
+ {
+  "uri": "vless://884f23e9-caab-4775-9ed9-6a3a9cae677f@151.101.69.253:443?type=ws&security=tls&sni=cdn.example.com&host=cdn.example.com&path=%2Fws&alpn=h2#NL-WS",
+  "node": {
+   "id": "fb957178aa55",
+   "protocol": "vless",
+   "transport": "ws",
+   "host": "151.101.69.253",
+   "port": 443,
+   "sni": "cdn.example.com",
+   "security": "tls",
+   "outbound_type": "vless"
+  }
+ },
+ {
+  "uri": "vless://74e2bf55-8495-49bc-99be-4a4d4ce2d2bf@grpc.example.org:8443?type=grpc&security=tls&sni=www.ibm.com&serviceName=grpcSvc#US-gRPC",
+  "node": {
+   "id": "6224b8c098ed",
+   "protocol": "vless",
+   "transport": "grpc",
+   "host": "grpc.example.org",
+   "port": 8443,
+   "sni": "www.ibm.com",
+   "security": "tls",
+   "outbound_type": "vless"
+  }
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@peer.example.org:443?type=tcp&security=tls&peer=front.example.org#peer-alias",
+  "node": {
+   "id": "0f87b5415269",
+   "protocol": "vless",
+   "transport": "tcp",
+   "host": "peer.example.org",
+   "port": 443,
+   "sni": "front.example.org",
+   "security": "tls",
+   "outbound_type": "vless"
+  }
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@H2.Example.org.:443?type=h2mux&security=tls&sni=h2.example.org&path=%2Fh&host=h2.example.org#h2mux",
+  "node": {
+   "id": "fc39b839135d",
+   "protocol": "vless",
+   "transport": "h2",
+   "host": "h2.example.org.",
+   "port": 443,
+   "sni": "h2.example.org",
+   "security": "tls",
+   "outbound_type": "vless"
+  }
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@plain.example.org:80?type=ws&security=none&host=front.example.org&path=%2F#ws-no-tls",
+  "node": {
+   "id": "6bd1409c28e8",
+   "protocol": "vless",
+   "transport": "ws",
+   "host": "plain.example.org",
+   "port": 80,
+   "sni": "front.example.org",
+   "security": "none",
+   "outbound_type": "vless"
+  }
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@up.example.org:443?type=httpupgrade&security=tls&sni=up.example.org&host=up.example.org&path=%2Fup#httpupgrade",
+  "node": {
+   "id": "a3a659b889f5",
+   "protocol": "vless",
+   "transport": "httpupgrade",
+   "host": "up.example.org",
+   "port": 443,
+   "sni": "up.example.org",
+   "security": "tls",
+   "outbound_type": "vless"
+  }
+ },
+ {
+  "uri": "hysteria2://H7mP2xY9kJ4nQ8wR5tF6vB3z@vpn-au.example.world:443?insecure=1&sni=speedtest.example.ru&obfs=salamander&obfs-password=s3cr3t&up=10&down=50#AU-Hy2",
+  "node": {
+   "id": "bdbe80906471",
+   "protocol": "hysteria2",
+   "transport": "quic",
+   "host": "vpn-au.example.world",
+   "port": 443,
+   "sni": "speedtest.example.ru",
+   "security": "tls",
+   "outbound_type": "hysteria2"
+  }
+ },
+ {
+  "uri": "hy2://df8d55f9fb51442d902abf8160dc051b@br.example.org:11100?security=tls&peer=www.bing.com#BR-Hy2-peer",
+  "node": {
+   "id": "a507e55113c4",
+   "protocol": "hysteria2",
+   "transport": "quic",
+   "host": "br.example.org",
+   "port": 11100,
+   "sni": "www.bing.com",
+   "security": "tls",
+   "outbound_type": "hysteria2"
+  }
+ },
+ {
+  "uri": "trojan://Tr0j4nP4ss@trojan.example.com:443?type=ws&security=tls&sni=trojan.example.com&path=%2Ftj&host=trojan.example.com#FR-Trojan-WS",
+  "node": {
+   "id": "57abf0278498",
+   "protocol": "trojan",
+   "transport": "ws",
+   "host": "trojan.example.com",
+   "port": 443,
+   "sni": "trojan.example.com",
+   "security": "tls",
+   "outbound_type": "trojan"
+  }
+ },
+ {
+  "uri": "trojan://Tr0j4nP4ss@bare.example.com:443#trojan-defaults",
+  "node": {
+   "id": "77f534cf7ca0",
+   "protocol": "trojan",
+   "transport": "tcp",
+   "host": "bare.example.com",
+   "port": 443,
+   "sni": "bare.example.com",
+   "security": "tls",
+   "outbound_type": "trojan"
+  }
+ },
+ {
+  "uri": "trojan://Tr0j4nP4ss@grpc.example.com:443?type=grpc&security=tls&serviceName=svc&peer=sni.example.com#trojan-grpc",
+  "node": {
+   "id": "624287860c14",
+   "protocol": "trojan",
+   "transport": "grpc",
+   "host": "grpc.example.com",
+   "port": 443,
+   "sni": "sni.example.com",
+   "security": "tls",
+   "outbound_type": "trojan"
+  }
+ },
+ {
+  "uri": "vmess://eyJ2IjoiMiIsInBzIjoiSlAtVk1lc3MtV1MiLCJhZGQiOiJqcC5leGFtcGxlLm5ldCIsInBvcnQiOiI0NDMiLCJpZCI6ImJmMzYyZjM4LTU5ODMtNGY1OS1hMTQyLTAwMTEyMjMzNDQ1NSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJwYXRoIjoiL3AiLCJob3N0IjoianAuZXhhbXBsZS5uZXQiLCJ0bHMiOiJ0bHMifQ==",
+  "node": {
+   "id": "9805d3f55620",
+   "protocol": "vmess",
+   "transport": "ws",
+   "host": "jp.example.net",
+   "port": 443,
+   "sni": "jp.example.net",
+   "security": "tls",
+   "outbound_type": "vmess"
+  }
+ },
+ {
+  "uri": "ss://YWVzLTI1Ni1nY206c3Nfc2VjcmV0X3Bhc3M@ss.example.net:8388#SG-SS-AEAD",
+  "node": {
+   "id": "cc0f6b2a21bc",
+   "protocol": "shadowsocks",
+   "transport": "tcp",
+   "host": "ss.example.net",
+   "port": 8388,
+   "sni": null,
+   "security": "none",
+   "outbound_type": "shadowsocks"
+  }
+ },
+ {
+  "uri": "ss://2022-blake3-aes-128-gcm:c2hvcnRrZXkxMjM0NTY3OA==@ss2022.example.net:443#SE-SS-2022",
+  "node": {
+   "id": "607129950e90",
+   "protocol": "shadowsocks",
+   "transport": "tcp",
+   "host": "ss2022.example.net",
+   "port": 443,
+   "sni": null,
+   "security": "none",
+   "outbound_type": "shadowsocks"
+  }
+ },
+ {
+  "uri": "ss://YWVzLTI1Ni1nY206cGFzc0BoLmV4YW1wbGU6ODM4OA==#legacy",
+  "node": {
+   "id": "ff3f0448de24",
+   "protocol": "shadowsocks",
+   "transport": "tcp",
+   "host": "h.example",
+   "port": 8388,
+   "sni": null,
+   "security": "none",
+   "outbound_type": "shadowsocks"
+  }
+ },
+ {
+  "uri": "tuic://b7f1c2a9-d4e5-4a6b-8c7d-0e1f2a3b4c5d:tuic_password@tuic.example.net:2053?sni=tuic.example.net&congestion-control=cubic&udp-relay-mode=quic&alpn=h3#FI-TUIC",
+  "node": {
+   "id": "0c65ebe43d0c",
+   "protocol": "tuic",
+   "transport": "quic",
+   "host": "tuic.example.net",
+   "port": 2053,
+   "sni": "tuic.example.net",
+   "security": "tls",
+   "outbound_type": "tuic"
+  }
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@x.example.org:443?type=xhttp&security=tls&sni=x.example.org#xhttp",
+  "node": null
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@x.example.org:443?type=splithttp&security=tls#splithttp",
+  "node": null
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@x.example.org:443?type=kcp#kcp",
+  "node": null
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@x.example.org:443?type=tcp&headerType=http&host=a.com#tcp-http",
+  "node": null
+ },
+ {
+  "uri": "trojan://pw@x.example.org:443?type=nonsense#trojan-unknown-net",
+  "node": null
+ },
+ {
+  "uri": "ss://YWVzLTI1Ni1nY206cGFzcw==@h.example:8388?plugin=obfs-local%3Bobfs%3Dhttp#ss-plugin",
+  "node": null
+ },
+ {
+  "uri": "vless://11111111-2222-3333-4444-555555555555@x.example.org:99999?type=tcp#bad-port",
+  "node": null
+ }
+]

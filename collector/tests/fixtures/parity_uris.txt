@@ -1,0 +1,31 @@
+# URIs both parsers (collector/parsers/*.py and app/lib/domain/uri_parser.dart)
+# must read identically. `parity_expected.json` is generated from the Python
+# side by `python tests/gen_parity.py` and asserted by both test suites — a
+# node the user pastes must get the same id as the same node in the pool.
+
+vless://f8738084-d3e4-457b-a15e-10d85709681f@example-reality.net:443?type=tcp&security=reality&pbk=ABCdefGHIjklMNOpqrstUVWxyz0123456789abcdEFG&sid=a1b2c3&fp=chrome&sni=www.apple.com&flow=xtls-rprx-vision#DE-Reality
+vless://884f23e9-caab-4775-9ed9-6a3a9cae677f@151.101.69.253:443?type=ws&security=tls&sni=cdn.example.com&host=cdn.example.com&path=%2Fws&alpn=h2#NL-WS
+vless://74e2bf55-8495-49bc-99be-4a4d4ce2d2bf@grpc.example.org:8443?type=grpc&security=tls&sni=www.ibm.com&serviceName=grpcSvc#US-gRPC
+vless://11111111-2222-3333-4444-555555555555@peer.example.org:443?type=tcp&security=tls&peer=front.example.org#peer-alias
+vless://11111111-2222-3333-4444-555555555555@H2.Example.org.:443?type=h2mux&security=tls&sni=h2.example.org&path=%2Fh&host=h2.example.org#h2mux
+vless://11111111-2222-3333-4444-555555555555@plain.example.org:80?type=ws&security=none&host=front.example.org&path=%2F#ws-no-tls
+vless://11111111-2222-3333-4444-555555555555@up.example.org:443?type=httpupgrade&security=tls&sni=up.example.org&host=up.example.org&path=%2Fup#httpupgrade
+hysteria2://H7mP2xY9kJ4nQ8wR5tF6vB3z@vpn-au.example.world:443?insecure=1&sni=speedtest.example.ru&obfs=salamander&obfs-password=s3cr3t&up=10&down=50#AU-Hy2
+hy2://df8d55f9fb51442d902abf8160dc051b@br.example.org:11100?security=tls&peer=www.bing.com#BR-Hy2-peer
+trojan://Tr0j4nP4ss@trojan.example.com:443?type=ws&security=tls&sni=trojan.example.com&path=%2Ftj&host=trojan.example.com#FR-Trojan-WS
+trojan://Tr0j4nP4ss@bare.example.com:443#trojan-defaults
+trojan://Tr0j4nP4ss@grpc.example.com:443?type=grpc&security=tls&serviceName=svc&peer=sni.example.com#trojan-grpc
+vmess://eyJ2IjoiMiIsInBzIjoiSlAtVk1lc3MtV1MiLCJhZGQiOiJqcC5leGFtcGxlLm5ldCIsInBvcnQiOiI0NDMiLCJpZCI6ImJmMzYyZjM4LTU5ODMtNGY1OS1hMTQyLTAwMTEyMjMzNDQ1NSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJwYXRoIjoiL3AiLCJob3N0IjoianAuZXhhbXBsZS5uZXQiLCJ0bHMiOiJ0bHMifQ==
+ss://YWVzLTI1Ni1nY206c3Nfc2VjcmV0X3Bhc3M@ss.example.net:8388#SG-SS-AEAD
+ss://2022-blake3-aes-128-gcm:c2hvcnRrZXkxMjM0NTY3OA==@ss2022.example.net:443#SE-SS-2022
+ss://YWVzLTI1Ni1nY206cGFzc0BoLmV4YW1wbGU6ODM4OA==#legacy
+tuic://b7f1c2a9-d4e5-4a6b-8c7d-0e1f2a3b4c5d:tuic_password@tuic.example.net:2053?sni=tuic.example.net&congestion-control=cubic&udp-relay-mode=quic&alpn=h3#FI-TUIC
+
+# rejected by both sides
+vless://11111111-2222-3333-4444-555555555555@x.example.org:443?type=xhttp&security=tls&sni=x.example.org#xhttp
+vless://11111111-2222-3333-4444-555555555555@x.example.org:443?type=splithttp&security=tls#splithttp
+vless://11111111-2222-3333-4444-555555555555@x.example.org:443?type=kcp#kcp
+vless://11111111-2222-3333-4444-555555555555@x.example.org:443?type=tcp&headerType=http&host=a.com#tcp-http
+trojan://pw@x.example.org:443?type=nonsense#trojan-unknown-net
+ss://YWVzLTI1Ni1nY206cGFzcw==@h.example:8388?plugin=obfs-local%3Bobfs%3Dhttp#ss-plugin
+vless://11111111-2222-3333-4444-555555555555@x.example.org:99999?type=tcp#bad-port

@@ -85,7 +85,8 @@ jobs:
           python -m weronity_collector run \
             --out out/nodes_pool.json \
             --seen state/seen.json \
-            --source-run "${{ github.run_id }}"             --min-nodes 20 \
+            --source-run "${{ github.run_id }}" \
+            --min-nodes 20 \
             ${{ (github.event_name == 'workflow_dispatch' && inputs.keep_dead) && '--keep-dead' || '' }}
           python -m weronity_collector validate out/nodes_pool.json
           python -m weronity_collector stats out/nodes_pool.json

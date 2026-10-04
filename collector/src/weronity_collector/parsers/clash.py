@@ -59,6 +59,8 @@ def _one(px: dict[str, Any]) -> ParsedNode:
         port = int(px["port"])
     except (KeyError, ValueError, TypeError) as exc:
         raise ParseError("clash: proxy without valid port") from exc
+    if not 1 <= port <= 65535:
+        raise ParseError(f"clash: port {port} out of range")
     name = str(px.get("name") or f"{server}:{port}")
 
     network: Transport = _NET_MAP.get(str(px.get("network", "tcp")).lower(), "tcp")
