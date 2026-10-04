@@ -37,3 +37,58 @@ jobs:
 
       - name: Pytest
         run: pytest -q
+
+  app:
+    name: app (analyze · test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.47.2"
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      # Pure-Dart unit tests (no native core on the runner — the suite covers
+      # the graceful-degradation path). Includes the Dart↔Python parser parity
+      # test, which reads collector/tests/fixtures/.
+      - name: Test
+        run: flutter test
+
+  native:
+    name: native (fmt · vet · test -race)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native/weronity_core
+    env:
+      CGO_ENABLED: "1"
+      SB_TAGS: with_quic,with_utls,with_gvisor
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: native/weronity_core/go.mod
+          cache-dependency-path: native/weronity_core/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: Vet
+        run: go vet -tags "$SB_TAGS" ./...
+
+      # The TUN lifecycle test stays skipped (needs WRN_ALLOW_TUN=1): it would
+      # reroute the runner's own traffic.
+      - name: Test
+        run: go test -race -tags "$SB_TAGS" ./...
