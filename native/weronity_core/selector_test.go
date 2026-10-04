@@ -40,16 +40,11 @@ type parsedConfig struct {
 		Outbounds []string `json:"outbounds"`
 		Default   string   `json:"default"`
 		Interrupt bool     `json:"interrupt_exist_connections"`
+		Resolver  string   `json:"domain_resolver"`
 	} `json:"outbounds"`
 	Route struct {
 		Final string `json:"final"`
 	} `json:"route"`
-	DNS struct {
-		Rules []struct {
-			Outbound []string `json:"outbound"`
-			Server   string   `json:"server"`
-		} `json:"rules"`
-	} `json:"dns"`
 }
 
 func parseCfg(t *testing.T, raw []byte) parsedConfig {
@@ -122,13 +117,12 @@ func TestMultipleCandidatesBuildASelectorGroup(t *testing.T) {
 				t.Errorf("route.final = %q", c.Route.Final)
 			}
 			// A node's own hostname must resolve locally, never through the
-			// tunnel we have not built yet — so the DNS rule has to name every
-			// candidate, not just "proxy".
-			if len(c.DNS.Rules) != 1 || len(c.DNS.Rules[0].Outbound) != 3 {
-				t.Fatalf("dns rule = %+v", c.DNS.Rules)
-			}
-			if c.DNS.Rules[0].Server != "dns-local" {
-				t.Errorf("dns rule server = %q", c.DNS.Rules[0].Server)
+			// tunnel we have not built yet — so every candidate, not just
+			// "proxy", pins the local resolver.
+			for i := 0; i < 3; i++ {
+				if c.Outbounds[i].Resolver != "dns-local" {
+					t.Errorf("outbound %d domain_resolver = %q", i, c.Outbounds[i].Resolver)
+				}
 			}
 		})
 	}

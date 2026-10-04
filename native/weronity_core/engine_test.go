@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -291,6 +293,135 @@ func TestHostileBackupIsDroppedNotFatal(t *testing.T) {
 }
 
 // …but a hostile *first* candidate is the node the user chose, so it is fatal.
+// A backup that sanitises fine but that sing-box itself refuses (an unknown
+// cipher here) used to fail box.New for the whole config — i.e. the user's own,
+// perfectly good node would not connect because of a neighbour in the list.
+func TestBackupSingBoxRejectsIsDroppedNotFatal(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+			{"type":"shadowsocks","server":"192.0.2.2","server_port":8388,"method":"bogus-cipher","password":"b"},
+			{"type":"vless","server":"192.0.2.3","server_port":443,"uuid":"11111111-1111-1111-1111-111111111111",
+				"tls":{"enabled":true,"server_name":"a.com","utls":{"enabled":true,"fingerprint":"no-such-browser"}}},
+			{"type":"trojan","server":"192.0.2.4","server_port":443,"password":"d"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("an unusable backup should not sink the session: %v", err)
+	}
+	snap := statsMap(t)
+	if n, _ := snap["candidates"].(float64); int(n) != 2 {
+		t.Errorf("candidates = %v, want 2 (both unusable backups dropped)", snap["candidates"])
+	}
+	if err := selectCandidate(3); err != nil {
+		t.Errorf("selecting the caller's index 3: %v", err)
+	}
+	for _, dropped := range []int{1, 2} {
+		if err := selectCandidate(dropped); err == nil {
+			t.Errorf("dropped candidate %d must not be selectable", dropped)
+		}
+	}
+}
+
+// …but when it is the node the user picked, the real reason must surface.
+func TestFirstCandidateSingBoxRejectsIsFatal(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"shadowsocks","server":"192.0.2.2","server_port":8388,"method":"bogus-cipher","password":"b"},
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	err := startEngine(cfg)
+	if err == nil {
+		t.Fatal("an unusable first candidate must fail the start")
+	}
+	if !strings.Contains(err.Error(), "bogus-cipher") {
+		t.Errorf("the error should name the real cause, got: %v", err)
+	}
+	if engineRunning() {
+		t.Fatal("engine must not be running")
+	}
+}
+
+func TestListenPortZeroPicksAFreePort(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	// Occupy the default port so "0 silently means 55555" would be visible.
+	if busy, err := net.Listen("tcp", "127.0.0.1:55555"); err == nil {
+		defer busy.Close()
+	}
+	var lines []string
+	var mu sync.Mutex
+	setEmitter(func(p string) { mu.Lock(); lines = append(lines, p); mu.Unlock() })
+	t.Cleanup(func() { setEmitter(nil) })
+
+	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+		"listen_port":0,"self_test":false}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine: %v", err)
+	}
+	if port, _ := statsMap(t)["socks_port"].(float64); port == 0 || port == 55555 {
+		t.Errorf("socks_port = %v, want an OS-assigned port", port)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	for _, l := range lines {
+		if strings.Contains(l, "занят") {
+			t.Errorf("port 0 must not go through the busy-port fallback: %s", l)
+		}
+	}
+}
+
+func TestMeasureLatencyNeedsARealHTTPAnswer(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	var answer atomic.Value
+	answer.Store("HTTP/1.1 204 No Content\r\n\r\n")
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 512)
+				if _, err := c.Read(buf); err != nil {
+					return
+				}
+				_, _ = c.Write([]byte(answer.Load().(string)))
+			}(c)
+		}
+	}()
+	toServer := func(string, string) (net.Conn, error) { return net.Dial("tcp", ln.Addr().String()) }
+
+	if ms, ok := measureLatency(toServer); !ok || ms < 1 {
+		t.Errorf("measureLatency = %d, %v; want a positive reading", ms, ok)
+	}
+	answer.Store("nope!")
+	if _, ok := measureLatency(toServer); ok {
+		t.Error("a non-HTTP answer must not count as a latency sample")
+	}
+	refused := func(string, string) (net.Conn, error) { return nil, net.ErrClosed }
+	if ms, ok := measureLatency(refused); ok || ms != 0 {
+		t.Errorf("a failed dial = %d, %v; want 0, false", ms, ok)
+	}
+}
+
 func TestHostileFirstCandidateIsFatal(t *testing.T) {
 	t.Cleanup(stopEngine)
 	stopEngine()

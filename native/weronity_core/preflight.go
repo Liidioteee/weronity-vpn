@@ -19,10 +19,6 @@ import (
 	"sync"
 	"time"
 
-	box "github.com/sagernet/sing-box"
-	"github.com/sagernet/sing-box/include"
-	"github.com/sagernet/sing-box/option"
-	singjson "github.com/sagernet/sing/common/json"
 	"golang.org/x/net/proxy"
 )
 
@@ -86,22 +82,19 @@ func testNodeJSON(reqJSON string) string {
 	if err != nil {
 		return probeSummaryErr(err.Error())
 	}
-	raw, err := buildSingBoxConfig([]map[string]any{san.Outbound}, port, "warn")
+	// While the main engine holds a tun, bind this engine to the physical
+	// interface — otherwise the probe would travel through the active node and
+	// say nothing about whether the candidate is reachable from here.
+	raw, err := buildBoundProxyConfig([]map[string]any{san.Outbound}, port, "warn", probeBinding())
 	if err != nil {
 		return probeSummaryErr("config: " + err.Error())
 	}
 
-	baseCtx := include.Context(context.Background())
-	opts, err := singjson.UnmarshalExtendedContext[option.Options](baseCtx, raw)
+	b, cancel, err := newBox(raw)
 	if err != nil {
-		return probeSummaryErr("config parse: " + err.Error())
+		return probeSummaryErr(err.Error())
 	}
-	runCtx, cancel := context.WithCancel(baseCtx)
 	defer cancel()
-	b, err := box.New(box.Options{Context: runCtx, Options: opts})
-	if err != nil {
-		return probeSummaryErr("engine create: " + err.Error())
-	}
 	if err := b.Start(); err != nil {
 		_ = b.Close()
 		return probeSummaryErr("engine start: " + err.Error())

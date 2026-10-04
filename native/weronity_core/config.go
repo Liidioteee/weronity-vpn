@@ -254,8 +254,12 @@ func sanitizeOutbound(raw map[string]any, tag string) (*SanitizeResult, error) {
 	clean["domain_resolver"] = "dns-local"
 
 	var warns []string
-	if server, _ := clean["server"].(string); server == "" {
+	server, _ := clean["server"].(string)
+	if server == "" {
 		return nil, errors.New("outbound has no server")
+	}
+	if err := checkServerAddr(server); err != nil {
+		return nil, err
 	}
 	if _, port := clean["server_port"]; !port {
 		if _, ports := clean["server_ports"]; !ports {
@@ -271,6 +275,26 @@ func sanitizeOutbound(raw map[string]any, tag string) (*SanitizeResult, error) {
 	clean["connect_timeout"] = "10s"
 
 	return &SanitizeResult{Outbound: clean, Warnings: warns}, nil
+}
+
+// checkServerAddr refuses endpoints that can only be a mistake or an attempt to
+// point the client at itself: loopback, unspecified, link-local and multicast
+// addresses. Private LAN ranges stay allowed — a user's own key may well live
+// on their network — and hostnames are resolved later by sing-box.
+func checkServerAddr(server string) error {
+	host := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(server)), ".")
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return fmt.Errorf("outbound server %q is a loopback name", server)
+	}
+	ip := net.ParseIP(strings.Trim(host, "[]"))
+	if ip == nil {
+		return nil
+	}
+	if ip.IsLoopback() || ip.IsUnspecified() || ip.IsMulticast() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return fmt.Errorf("outbound server %q is not a routable address", server)
+	}
+	return nil
 }
 
 // StartConfig is the JSON contract passed from Dart to wrnStart.
@@ -292,13 +316,13 @@ type StartConfig struct {
 	StrictRoute bool `json:"strict_route"`
 
 	// Mode: "proxy" (default) exposes a local SOCKS/HTTP proxy on
-	// 127.0.0.1:<listen_port>; "vpn" captures all traffic via a TUN device
-	// (Phase 3.3 — rejected for now).
+	// 127.0.0.1:<listen_port>; "vpn" captures all traffic via a TUN device.
 	Mode string `json:"mode"`
 
-	// ListenPort is the public proxy port in proxy mode (default 55555;
-	// 0 = pick a free one). Always bound to 127.0.0.1.
-	ListenPort int `json:"listen_port"`
+	// ListenPort is the public proxy port in proxy mode, always bound to
+	// 127.0.0.1. Absent (or out of range) = the default 55555; an explicit 0 =
+	// let the OS pick a free one.
+	ListenPort *int `json:"listen_port"`
 
 	// SocksPort is the *internal* sing-box inbound port (loopback, ephemeral by
 	// default). Rarely set from Dart — mostly for tests.
@@ -318,9 +342,10 @@ func (c StartConfig) mode() string {
 	return "proxy"
 }
 
+// listenPort returns the public proxy port to bind; 0 means "any free port".
 func (c StartConfig) listenPort() int {
-	if c.ListenPort > 0 && c.ListenPort <= 65535 {
-		return c.ListenPort
+	if c.ListenPort != nil && *c.ListenPort >= 0 && *c.ListenPort <= 65535 {
+		return *c.ListenPort
 	}
 	return defaultProxyPort
 }
@@ -355,13 +380,11 @@ func (c StartConfig) logLevel() string {
 }
 
 // dnsBlock is shared by both modes: DoH through the tunnel, plus a local
-// resolver used only for the proxy endpoints' own hostnames. `nodeTags` are the
-// outbound tags whose own DNS must never loop back through the tunnel.
-func dnsBlock(nodeTags []string) map[string]any {
-	viaLocal := make([]any, 0, len(nodeTags))
-	for _, t := range nodeTags {
-		viaLocal = append(viaLocal, t)
-	}
+// resolver used only for the proxy endpoints' own hostnames. Each node outbound
+// pins `domain_resolver: dns-local` (see sanitizeOutbound) and the route sets
+// `default_domain_resolver`, so a node's own DNS never loops back through the
+// tunnel — no `outbound` DNS rule needed (sing-box deprecated that item).
+func dnsBlock() map[string]any {
 	return map[string]any{
 		"servers": []any{
 			map[string]any{
@@ -370,15 +393,8 @@ func dnsBlock(nodeTags []string) map[string]any {
 			},
 			map[string]any{"type": "local", "tag": "dns-local"},
 		},
-		"rules": []any{
-			map[string]any{
-				"outbound": viaLocal,
-				"server":   "dns-local",
-			},
-		},
-		"final":            "dns-proxy",
-		"strategy":         "prefer_ipv4",
-		"independent_cache": true,
+		"final":    "dns-proxy",
+		"strategy": "prefer_ipv4",
 	}
 }
 
@@ -390,28 +406,27 @@ func nodeTag(i int) string { return fmt.Sprintf("node-%d", i) }
 const proxyTag = "proxy"
 
 // buildOutbounds turns the sanitised candidate list into the config's
-// `outbounds` array plus the tags whose own DNS must stay local.
+// `outbounds` array.
 //
 //	1 candidate  -> [node(tag=proxy), direct]                  (as before 3.3b)
 //	N candidates -> [node-0 … node-N-1, selector(tag=proxy), direct]
 //
 // The caller must already have sanitised each candidate with the matching tag.
-func buildOutbounds(cleans []map[string]any) (outbounds []any, nodeTags []string, err error) {
+func buildOutbounds(cleans []map[string]any) (outbounds []any, err error) {
 	if len(cleans) == 0 {
-		return nil, nil, errors.New("no node outbound")
+		return nil, errors.New("no node outbound")
 	}
 	if len(cleans) == 1 {
 		return []any{
 			cleans[0],
 			map[string]any{"type": "direct", "tag": "direct"},
-		}, []string{proxyTag}, nil
+		}, nil
 	}
 	tags := make([]any, 0, len(cleans))
 	outbounds = make([]any, 0, len(cleans)+2)
 	for i, c := range cleans {
 		outbounds = append(outbounds, c)
 		tags = append(tags, nodeTag(i))
-		nodeTags = append(nodeTags, nodeTag(i))
 	}
 	outbounds = append(outbounds, map[string]any{
 		"type":                        "selector",
@@ -421,22 +436,50 @@ func buildOutbounds(cleans []map[string]any) (outbounds []any, nodeTags []string
 		"interrupt_exist_connections": true,
 	})
 	outbounds = append(outbounds, map[string]any{"type": "direct", "tag": "direct"})
-	return outbounds, nodeTags, nil
+	return outbounds, nil
 }
 
 // buildSingBoxConfig assembles the proxy-mode config: one loopback mixed inbound,
 // no control API. Everything except the sanitised proxy outbounds is fixed.
 func buildSingBoxConfig(cleans []map[string]any, socksPort int, logLevel string) ([]byte, error) {
+	return buildBoundProxyConfig(cleans, socksPort, logLevel, routeBinding{})
+}
+
+// routeBinding says which network interface a proxy-mode engine's own sockets
+// must leave through. The zero value = follow the OS routing table.
+//
+// It matters for the throwaway probe engine (preflight.go) while the main engine
+// holds a tun with auto_route: without a binding the probe's connections follow
+// the default route — straight into the tunnel, i.e. through the very node the
+// probe is supposed to be an alternative to.
+type routeBinding struct {
+	// iface is an explicit interface name (`route.default_interface`).
+	iface string
+	// autoDetect asks sing-box to find the physical default interface itself;
+	// used when the name is not known.
+	autoDetect bool
+}
+
+func buildBoundProxyConfig(cleans []map[string]any, socksPort int, logLevel string, bind routeBinding) ([]byte, error) {
 	if socksPort <= 0 || socksPort > 65535 {
 		return nil, fmt.Errorf("bad socks port %d", socksPort)
 	}
-	outs, nodeTags, err := buildOutbounds(cleans)
+	outs, err := buildOutbounds(cleans)
 	if err != nil {
 		return nil, err
 	}
+	route := map[string]any{
+		"rules":                   []any{},
+		"final":                   proxyTag,
+		"auto_detect_interface":   bind.iface == "" && bind.autoDetect,
+		"default_domain_resolver": "dns-local",
+	}
+	if bind.iface != "" {
+		route["default_interface"] = bind.iface
+	}
 	cfg := map[string]any{
 		"log": map[string]any{"level": logLevel, "timestamp": true},
-		"dns": dnsBlock(nodeTags),
+		"dns": dnsBlock(),
 		"inbounds": []any{
 			map[string]any{
 				"type": "mixed", "tag": "socks-in",
@@ -444,12 +487,7 @@ func buildSingBoxConfig(cleans []map[string]any, socksPort int, logLevel string)
 			},
 		},
 		"outbounds": outs,
-		"route": map[string]any{
-			"rules":                   []any{},
-			"final":                   proxyTag,
-			"auto_detect_interface":   false,
-			"default_domain_resolver": "dns-local",
-		},
+		"route":     route,
 	}
 
 	raw, err := json.Marshal(cfg)
@@ -483,13 +521,13 @@ const (
 // `auto_route` marks the engine's own sockets and `auto_detect_interface`
 // binds them to the default interface.
 func buildTunConfig(cleans []map[string]any, logLevel string, strictRoute bool) ([]byte, error) {
-	outs, nodeTags, err := buildOutbounds(cleans)
+	outs, err := buildOutbounds(cleans)
 	if err != nil {
 		return nil, err
 	}
 	cfg := map[string]any{
 		"log": map[string]any{"level": logLevel, "timestamp": true},
-		"dns": dnsBlock(nodeTags),
+		"dns": dnsBlock(),
 		"inbounds": []any{
 			map[string]any{
 				"type":           "tun",

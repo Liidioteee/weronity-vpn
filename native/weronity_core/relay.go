@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"net"
 	"sync/atomic"
@@ -42,9 +43,11 @@ func (r *countingRelay) acceptLoop() {
 	for {
 		c, err := r.ln.Accept()
 		if err != nil {
-			if r.closed.Load() {
+			if r.closed.Load() || errors.Is(err, net.ErrClosed) {
 				return
 			}
+			// Transient (e.g. out of file descriptors): back off rather than spin.
+			time.Sleep(50 * time.Millisecond)
 			continue
 		}
 		go r.handle(c)
