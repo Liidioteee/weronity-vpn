@@ -26,6 +26,10 @@ type probeReq struct {
 	Outbound  map[string]any `json:"outbound"`
 	Targets   []string       `json:"targets"`
 	TimeoutMs int            `json:"timeout_ms"`
+
+	// ExitGeo also asks where the node's traffic actually leaves — see
+	// probeSummary.ExitCountry.
+	ExitGeo bool `json:"exit_geo"`
 }
 
 type probeHit struct {
@@ -43,7 +47,19 @@ type probeSummary struct {
 	BestMs    int64      `json:"best_ms"`   // fastest clean hit, or -1
 	Hits      []probeHit `json:"hits"`
 	Err       string     `json:"err,omitempty"` // engine-level failure (never started)
+
+	// ExitCountry is the ISO-3166 alpha-2 country the node's traffic comes out
+	// in, as seen from outside (only when the request set exit_geo). The pool's
+	// `geo` is a GeoIP guess about the *entry* address; a relay or a CDN-fronted
+	// node exits somewhere else, and registry-based GeoIP mislabels hosting
+	// ranges. Empty = could not tell.
+	ExitCountry string `json:"exit_country,omitempty"`
 }
+
+// exitGeoURL answers with plain `key=value` lines, one of which is the
+// requester's country (`loc=NL`). Reached through the tunnel, the requester is
+// the node's exit address.
+const exitGeoURL = "https://www.cloudflare.com/cdn-cgi/trace"
 
 var defaultProbeTargets = []string{
 	"https://www.google.com/generate_204",
@@ -107,6 +123,7 @@ func testNodeJSON(reqJSON string) string {
 	}
 
 	hits := make([]probeHit, len(targets))
+	var exitCountry string
 	var wg sync.WaitGroup
 	for i, t := range targets {
 		wg.Add(1)
@@ -115,9 +132,16 @@ func testNodeJSON(reqJSON string) string {
 			hits[i] = httpProbe(dialer, target, per)
 		}(i, t)
 	}
+	if req.ExitGeo {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			exitCountry = fetchExitCountry(dialer, per)
+		}()
+	}
 	wg.Wait()
 
-	sum := probeSummary{BestMs: -1, Hits: hits}
+	sum := probeSummary{BestMs: -1, Hits: hits, ExitCountry: exitCountry}
 	for _, h := range hits {
 		if h.OK {
 			sum.OK = true
@@ -176,6 +200,52 @@ func httpProbe(dialer proxy.Dialer, target string, timeout time.Duration) probeH
 		h.Blocked = resp.StatusCode == 403 || resp.StatusCode == 451
 	}
 	return h
+}
+
+// fetchExitCountry asks exitGeoURL through the proxy and returns the country
+// it reports, or "" on any failure.
+func fetchExitCountry(dialer proxy.Dialer, timeout time.Duration) string {
+	tr := &http.Transport{DisableKeepAlives: true, TLSHandshakeTimeout: timeout}
+	if cd, ok := dialer.(proxy.ContextDialer); ok {
+		tr.DialContext = cd.DialContext
+	} else {
+		tr.DialContext = func(_ context.Context, network, addr string) (net.Conn, error) {
+			return dialer.Dial(network, addr)
+		}
+	}
+	client := &http.Client{Transport: tr, Timeout: timeout}
+	resp, err := client.Get(exitGeoURL)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	return parseTraceCountry(string(body))
+}
+
+// parseTraceCountry pulls the `loc=` line out of a /cdn-cgi/trace body. Only a
+// real two-letter country code counts: "XX" (unknown) and "T1" (Tor) do not.
+func parseTraceCountry(body string) string {
+	for _, line := range strings.Split(body, "\n") {
+		value, ok := strings.CutPrefix(strings.TrimSpace(line), "loc=")
+		if !ok {
+			continue
+		}
+		cc := strings.ToUpper(strings.TrimSpace(value))
+		if len(cc) != 2 || cc == "XX" {
+			return ""
+		}
+		for _, r := range cc {
+			if r < 'A' || r > 'Z' {
+				return ""
+			}
+		}
+		return cc
+	}
+	return ""
 }
 
 func looksLikeHTML(b []byte) bool {

@@ -9,6 +9,7 @@ import '../../core/singbox_bridge.dart';
 import '../../data/pool_repository.dart';
 import '../../domain/country_names.dart';
 import '../../state/bundles.dart';
+import '../../state/exit_geo.dart';
 import '../../state/monitor.dart';
 import '../../state/providers.dart';
 import '../common/flag.dart';
@@ -49,7 +50,21 @@ class HomeScreen extends ConsumerWidget {
     final controller = ref.watch(connectionControllerProvider);
     final phase = ref.watch(connectPhaseProvider);
     final notice = ref.watch(connectionNoticeProvider);
+    final exitNotice = ref.watch(exitNoticeProvider);
     final poolAsync = ref.watch(poolProvider);
+
+    // Which country to show for the running session: the one its exit was just
+    // *seen* in, else the node's country as corrected by earlier checks, else
+    // what the node was listed with.
+    final active = controller.activeNode;
+    final sessionExit = ref.watch(sessionExitProvider);
+    final exitVerified = active != null && sessionExit?.nodeId == active.id;
+    final activeCountry = active == null
+        ? null
+        : exitVerified
+            ? sessionExit!.country
+            : ref.watch(exitGeoProvider.select((m) => m[active.id])) ??
+                active.countryCode;
     final proMode = ref.watch(settingsProvider.select((s) => s.proMode));
 
     return Scaffold(
@@ -106,7 +121,7 @@ class HomeScreen extends ConsumerWidget {
                     status: phase == null
                         ? controller.status
                         : ConnectionStatus.connecting,
-                    flagCode: controller.activeNode?.countryCode,
+                    flagCode: activeCountry,
                     switching: controller.isSwitching,
                     // Ignore taps while the pre-connect scan runs — a second
                     // press would start a second scan.
@@ -114,7 +129,14 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: WSpace.xl),
-                _StatusLine(controller: controller, phase: phase, notice: notice),
+                _StatusLine(
+                  controller: controller,
+                  phase: phase,
+                  notice: notice,
+                  exitNotice: exitNotice,
+                  country: activeCountry,
+                  exitVerified: exitVerified,
+                ),
                 const SizedBox(height: WSpace.xl),
                 FadeSlideIn(
                   child: _SelectionCard(controller: controller),
@@ -143,8 +165,25 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.controller, this.phase, this.notice});
+  const _StatusLine({
+    required this.controller,
+    this.phase,
+    this.notice,
+    this.exitNotice,
+    this.country,
+    this.exitVerified = false,
+  });
   final ConnectionEngine controller;
+
+  /// The country to show for the session (see `HomeScreen.build`).
+  final String? country;
+
+  /// True once this session's exit country has actually been observed.
+  final bool exitVerified;
+
+  /// Set while the session exits in a country other than the chosen one — see
+  /// `exitNoticeProvider`.
+  final String? exitNotice;
 
   /// Set while a pre-connect scan is running — see `connectPhaseProvider`.
   final String? phase;
@@ -166,7 +205,8 @@ class _StatusLine extends StatelessWidget {
     final label = phase ??
         (controller.isSwitching ? 'Смена локации…' : s.label);
     final key = ValueKey<String>(
-      '$label|${controller.activeNode?.id}|${controller.lastError}|$notice',
+      '$label|${controller.activeNode?.id}|${controller.lastError}|$notice|'
+      '$exitNotice|$country|$exitVerified',
     );
 
     return AnimatedSwitcher(
@@ -200,10 +240,23 @@ class _StatusLine extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CountryLabel(
-                      controller.activeNode!.countryCode,
+                      country ?? controller.activeNode!.countryCode,
                       flagSize: 18,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
+                    if (exitVerified)
+                      const Padding(
+                        padding: EdgeInsets.only(left: WSpace.xs),
+                        child: Tooltip(
+                          message: 'Страна выхода подтверждена проверкой '
+                              'через туннель',
+                          child: Icon(
+                            Icons.verified_rounded,
+                            size: 15,
+                            color: WColors.protected,
+                          ),
+                        ),
+                      ),
                     _ElapsedText(controller: controller),
                   ],
                 ),
@@ -222,6 +275,17 @@ class _StatusLine extends StatelessWidget {
                 if (!controller.activeNode!.isHopSecure) ...[
                   const SizedBox(height: WSpace.sm),
                   HopSecurityTag(controller.activeNode!.hopSecurity),
+                ],
+                if (exitNotice != null) ...[
+                  const SizedBox(height: WSpace.sm),
+                  Text(
+                    exitNotice!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: WColors.connecting),
+                  ),
                 ],
                 if (notice != null) ...[
                   const SizedBox(height: WSpace.sm),

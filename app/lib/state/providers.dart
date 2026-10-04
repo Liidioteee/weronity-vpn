@@ -16,6 +16,7 @@ import '../domain/node.dart';
 import 'bundles.dart';
 import 'candidates.dart';
 import 'custom_keys.dart';
+import 'exit_geo.dart';
 
 /// Hive boxes — opened in `main()` and injected via [ProviderScope.overrides].
 final poolCacheBoxProvider = Provider<Box<String>>(
@@ -127,8 +128,9 @@ final poolPollingProvider = Provider<void>((ref) {
   });
 });
 
-/// All selectable nodes: crowd-sourced pool + user's custom keys / subscriptions.
-final nodesProvider = Provider<List<Node>>((ref) {
+/// Crowd-sourced pool + user's custom keys / subscriptions, as listed — each
+/// node still carries the country its source claimed.
+final _listedNodesProvider = Provider<List<Node>>((ref) {
   final pool = ref.watch(poolProvider).valueOrNull?.pool.nodes ?? const <Node>[];
   final custom = ref.watch(customNodesProvider);
   if (custom.isEmpty) return pool;
@@ -137,6 +139,17 @@ final nodesProvider = Provider<List<Node>>((ref) {
     byId.putIfAbsent(n.id, () => n);
   }
   return byId.values.toList();
+});
+
+/// All selectable nodes. Where a check has seen which country a node really
+/// exits in ([exitGeoProvider]), that replaces the listed country — so the
+/// country picker, the filters, the selection and failover all work with where
+/// the traffic actually comes out.
+final nodesProvider = Provider<List<Node>>((ref) {
+  final listed = ref.watch(_listedNodesProvider);
+  final exits = ref.watch(exitGeoProvider);
+  if (exits.isEmpty) return listed;
+  return [for (final n in listed) withExitCountry(n, exits[n.id])];
 });
 
 // --- filtering -----------------------------------------------------------

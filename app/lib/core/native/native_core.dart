@@ -286,16 +286,22 @@ class NativeCore {
   /// Never touches an active connection. Runs in a helper isolate so it doesn't
   /// block the UI (it can take a few seconds). Returns the `probeSummary` map,
   /// or null if the core is missing / the call failed.
+  ///
+  /// With [exitGeo] the summary also carries `exit_country` — the country the
+  /// node's traffic actually comes out in (asked in parallel with the probes,
+  /// so it costs no extra time).
   Future<Map<String, dynamic>?> testNode(
     Map<String, dynamic> outbound, {
     List<String>? targets,
     int timeoutMs = 7000,
+    bool exitGeo = false,
   }) {
     if (!isAvailable) return Future<Map<String, dynamic>?>.value();
     final payload = jsonEncode({
       'outbound': outbound,
       if (targets != null && targets.isNotEmpty) 'targets': targets,
       'timeout_ms': timeoutMs,
+      if (exitGeo) 'exit_geo': true,
     });
     return Isolate.run(() => _runTestNode(payload));
   }

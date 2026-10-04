@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/node.dart';
+import 'exit_geo.dart';
 import 'providers.dart';
 
 /// Result of an on-device reachability probe for one node.
@@ -281,9 +282,14 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
         outbound,
         targets: quick ? const [quickTarget] : s.preflightEndpoints,
         timeoutMs: timeoutMs ?? s.checkTimeoutMs,
+        exitGeo: true,
       );
     } on Object catch (e) {
       summary = {'err': '$e'};
+    }
+    // Every check is also a chance to learn where the node really exits.
+    if (summary?['exit_country'] case final String cc) {
+      ref.read(exitGeoProvider.notifier).record(id, cc);
     }
     var result = summary == null
         ? const NodeProbe(verdict: ProbeVerdict.error, error: 'ядро недоступно')
@@ -317,17 +323,25 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
   ///
   /// It returns the moment the first good result arrives — the checks still in
   /// flight finish in the background and only refresh the cache.
+  ///
+  /// [accept] is an extra condition a working node must meet to win (e.g. "it
+  /// exits in the country the user picked"). It is asked *after* the node's
+  /// check, so it can rely on what that check just learned.
   Future<String?> burstFindGood(
     List<String> candidateIds,
     Map<String, Map<String, dynamic>> outboundById, {
     int timeoutMs = 2500,
     Duration deadline = const Duration(seconds: 25),
+    bool Function(String id)? accept,
   }) {
+    bool wins(String id) =>
+        (state[id]?.isGood ?? false) && (accept == null || accept(id));
+
     // An already-known fresh-good candidate wins immediately.
     for (final id in candidateIds) {
       final p = state[id];
       if (p != null &&
-          p.isGood &&
+          wins(id) &&
           (p.at?.isAfter(DateTime.now().subtract(const Duration(minutes: 5))) ??
               false)) {
         return Future<String?>.value(id);
@@ -347,9 +361,7 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
         final ob = outboundById[id];
         if (ob == null) continue;
         await testRaw(id, ob, timeoutMs: timeoutMs, quick: true);
-        if (!done.isCompleted && (state[id]?.isGood ?? false)) {
-          done.complete(id);
-        }
+        if (!done.isCompleted && wins(id)) done.complete(id);
       }
     }
 

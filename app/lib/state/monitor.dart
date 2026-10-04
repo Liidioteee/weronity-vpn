@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -7,9 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/connection_controller.dart';
 import '../core/singbox_bridge.dart';
 import '../data/custom_keys_repository.dart';
+import '../domain/country_names.dart';
 import '../domain/node.dart';
 import 'bundles.dart';
 import 'candidates.dart';
+import 'exit_geo.dart';
 import 'preflight.dart';
 import 'providers.dart';
 
@@ -26,6 +29,15 @@ import 'providers.dart';
 /// off. That also covers "the internet itself is down" — then nothing answers,
 /// so nothing is switched.
 ///
+/// **Connected, and the tunnel is fine:** on connect, after every switch and
+/// then every few minutes it asks, through the tunnel, which country the
+/// traffic actually comes out in ([exitCheckInterval]). The node's listed
+/// country is only a GeoIP guess about its entry address. The answer corrects
+/// the node everywhere ([exitGeoProvider]) and the home screen shows it. If the
+/// user picked a country and the exit is somewhere else, the session moves to a
+/// node *seen* exiting in that country; if there is none it stays put and says
+/// so ([exitNoticeProvider]).
+///
 /// **Idle:** keeps the handful of nodes the next connect would use vetted
 /// ([idleCheckScope]) — a few per tick. It deliberately does not walk the whole
 /// pool: that is hundreds of connections to proxy servers from the user's own
@@ -40,6 +52,7 @@ final monitorProvider = Provider<void>((ref) {
   var busy = false;
   String? lastActiveId;
   DateTime? lastLivenessAt;
+  DateTime? lastExitCheckAt;
   // Failover attempts that found nothing, and when the next one may run.
   var misses = 0;
   DateTime? retryFailoverAt;
@@ -67,6 +80,7 @@ final monitorProvider = Provider<void>((ref) {
         if (justConnected) {
           misses = 0;
           retryFailoverAt = null;
+          lastExitCheckAt = null; // a different node — its exit is unverified
         }
 
         final due = justConnected ||
@@ -92,6 +106,13 @@ final monitorProvider = Provider<void>((ref) {
           misses = 0;
           retryFailoverAt = null;
           setNotice(null);
+          // The tunnel works — is it coming out where the user thinks it is?
+          if (lastExitCheckAt == null ||
+              DateTime.now().difference(lastExitCheckAt!) >=
+                  exitCheckInterval) {
+            lastExitCheckAt = DateTime.now();
+            await _verifyExit(ref, controller, active, pingTimeout);
+          }
           return;
         }
 
@@ -108,9 +129,11 @@ final monitorProvider = Provider<void>((ref) {
       }
       lastActiveId = null;
       lastLivenessAt = null;
+      lastExitCheckAt = null;
       misses = 0;
       retryFailoverAt = null;
       setNotice(null);
+      _clearExitState(ref);
 
       if (controller.isActive) return; // connecting — stay out of the way
       if (pf.anyTesting) return; // a manual sweep is running — don't pile on
@@ -159,22 +182,175 @@ Duration failoverBackoff(int misses) {
   return Duration(seconds: steps[(misses - 1).clamp(0, steps.length - 1)]);
 }
 
+/// How often a healthy session re-checks which country it exits in (it is also
+/// checked right after connecting and after every switch).
+const exitCheckInterval = Duration(minutes: 3);
+
 /// Shown on the home screen while the session is up but its node does not
 /// answer and no replacement was found. `null` = nothing to report.
 final connectionNoticeProvider = StateProvider<String?>((ref) => null);
 
-/// A real request through the current tunnel (HTTP-CONNECT via the local mixed
-/// inbound in proxy mode; direct in VPN mode — everything is tunnelled anyway).
-Future<bool> _tunnelAlive(ConnectionEngine controller, Duration timeout) async {
+/// The exit country last *seen* for the running session, with the node it was
+/// seen through. The home screen shows this country (and a "verified" mark)
+/// instead of the node's listed one. `null` until the first check of a session.
+final sessionExitProvider =
+    StateProvider<({String nodeId, String country})?>((ref) => null);
+
+/// Shown on the home screen while the session exits in a country other than the
+/// one the user picked and no node exiting in the right one was found.
+final exitNoticeProvider = StateProvider<String?>((ref) => null);
+
+void _clearExitState(Ref ref) {
+  if (ref.read(sessionExitProvider) != null) {
+    ref.read(sessionExitProvider.notifier).state = null;
+  }
+  if (ref.read(exitNoticeProvider) != null) {
+    ref.read(exitNoticeProvider.notifier).state = null;
+  }
+}
+
+/// An [HttpClient] whose requests go through the current tunnel: via the local
+/// mixed inbound in proxy mode; direct in VPN mode — everything is tunnelled
+/// anyway. `null` when the proxy endpoint is not known yet.
+HttpClient? _tunnelClient(ConnectionEngine controller, Duration timeout) {
   final client = HttpClient()..connectionTimeout = timeout;
   if (controller is SingBoxBridge && !controller.isVpn) {
     final ep = controller.proxyEndpoint; // "127.0.0.1:<port>"
     if (ep == null) {
       client.close(force: true);
-      return false;
+      return null;
     }
     client.findProxy = (_) => 'PROXY $ep';
   }
+  return client;
+}
+
+/// Asks, through the tunnel, which country the session's traffic comes out in.
+/// `null` = could not tell (the lookup failed) — never treated as a mismatch.
+Future<String?> _exitCountry(ConnectionEngine controller, Duration timeout) async {
+  final client = _tunnelClient(controller, timeout);
+  if (client == null) return null;
+  try {
+    final req = await client
+        .getUrl(Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'))
+        .timeout(timeout);
+    final resp = await req.close().timeout(timeout);
+    if (resp.statusCode != 200) {
+      await resp.drain<void>();
+      return null;
+    }
+    final body = await resp
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .join()
+        .timeout(timeout);
+    return parseTraceCountry(body);
+  } on Object {
+    return null;
+  } finally {
+    client.close(force: true);
+  }
+}
+
+/// Checks where the session through [active] really exits, records it, and —
+/// when the user picked a country and this is not it — tries to move the
+/// session to a node that does exit there.
+Future<void> _verifyExit(
+  Ref ref,
+  ConnectionEngine controller,
+  Node active,
+  Duration timeout,
+) async {
+  final seen = await _exitCountry(controller, timeout);
+  if (seen == null) return; // could not tell: say nothing, change nothing
+  // The session may have ended or moved while we asked.
+  if (controller.status != ConnectionStatus.protected ||
+      controller.activeNode?.id != active.id) {
+    return;
+  }
+
+  ref.read(exitGeoProvider.notifier).record(active.id, seen);
+  ref.read(sessionExitProvider.notifier).state =
+      (nodeId: active.id, country: seen);
+
+  final exitNotice = ref.read(exitNoticeProvider.notifier);
+  final wanted = controller.selection.countryCode;
+  if (wanted == null || wanted == seen) {
+    if (exitNotice.state != null) exitNotice.state = null;
+    return;
+  }
+
+  final log = ref.read(logControllerProvider);
+  final seenName = countryNameRu(seen);
+  final wantedName = countryNameRu(wanted);
+  log.add('warn', 'monitor',
+      'узел ${_name(active)} выходит в интернет в стране «$seenName», а выбрана '
+      '«$wantedName» — ищу узел с выходом в «$wantedName»');
+
+  final moved = await _relocate(ref, active, wanted);
+  if (moved) {
+    exitNotice.state = null;
+    return;
+  }
+  final why = ref.read(settingsProvider).autoSwitch
+      ? 'узлов с выходом в стране «$wantedName» не найдено'
+      : 'автопереключение выключено';
+  log.add('warn', 'monitor', 'остаюсь на узле ${_name(active)}: $why');
+  exitNotice.state = 'Выход в интернет — «$seenName», а не «$wantedName»: $why.';
+}
+
+/// Moves the session to a node that has been *seen* exiting in [wanted]. Unlike
+/// a failover, the current node works — so only a verified match is worth the
+/// switch; a node whose exit is merely listed as [wanted] is exactly what just
+/// turned out to be wrong.
+Future<bool> _relocate(Ref ref, Node active, String wanted) async {
+  final settings = ref.read(settingsProvider);
+  if (!settings.autoSwitch) return false;
+  final controller = ref.read(connectionControllerProvider);
+
+  // Read the node list *now*: the record above has just moved [active] out of
+  // [wanted], and every probe below moves more mislabelled nodes out too.
+  final scope = failoverScope(
+    controller.selection,
+    active,
+    ref.read(nodesProvider),
+    ref.read(allBundlesProvider),
+  );
+  final byId = {for (final n in scope) n.id: n};
+  final ids = [for (final n in scope.take(_failoverScanWidth)) n.id];
+  if (ids.isEmpty) return false;
+
+  bool exitsInWanted(String id) => ref.read(exitGeoProvider)[id] == wanted;
+
+  Node? pick = _firstGood(
+    [for (final id in ids) if (exitsInWanted(id)) id],
+    byId,
+    ref.read(preflightProvider),
+    freshOnly: true,
+  );
+  if (pick == null) {
+    final foundId = await ref.read(preflightProvider.notifier).burstFindGood(
+          ids,
+          {for (final id in ids) id: byId[id]!.outbound},
+          timeoutMs: (settings.checkTimeoutMs * 0.6).round().clamp(1500, 4000),
+          accept: exitsInWanted,
+        );
+    pick = foundId == null ? null : byId[foundId];
+  }
+  if (pick == null) return false;
+
+  if (controller.status != ConnectionStatus.protected ||
+      controller.activeNode?.id != active.id) {
+    return false;
+  }
+  ref.read(logControllerProvider).add('info', 'monitor',
+      'переключаюсь на ${_name(pick)} — выход в стране «${countryNameRu(wanted)}» подтверждён');
+  return controller.switchTo(pick);
+}
+
+/// A real request through the current tunnel.
+Future<bool> _tunnelAlive(ConnectionEngine controller, Duration timeout) async {
+  final client = _tunnelClient(controller, timeout);
+  if (client == null) return false;
   try {
     final req = await client
         .getUrl(Uri.parse('https://www.gstatic.com/generate_204'))
@@ -265,6 +441,7 @@ Future<bool> _failover(
           ids,
           {for (final id in ids) id: byId[id]!.outbound},
           timeoutMs: (settings.checkTimeoutMs * 0.6).round().clamp(1500, 4000),
+          accept: _exitAllowedBy(ref, controller.selection),
         );
     pick = foundId == null ? null : byId[foundId];
   }
@@ -294,6 +471,19 @@ Future<bool> _failover(
 }
 
 const _failoverScanWidth = 48;
+
+/// For a country selection: a node whose check has just shown it exits
+/// somewhere else is not an acceptable pick, however well it works. A node
+/// whose exit could not be determined keeps the benefit of the doubt — the
+/// session re-checks it once connected. Any other selection accepts everything.
+bool Function(String id)? _exitAllowedBy(Ref ref, Selection selection) {
+  final wanted = selection.countryCode;
+  if (wanted == null) return null;
+  return (id) {
+    final seen = ref.read(exitGeoProvider)[id];
+    return seen == null || seen == wanted;
+  };
+}
 
 String _scopeLabel(Selection s) {
   if (s.bundleId != null) return 'в подборке';
@@ -456,13 +646,18 @@ final connectPickProvider =
       if (last != null) {
         await pf.testRaw(last.id, last.outbound,
             timeoutMs: timeoutMs.clamp(1500, 2500), quick: true);
-        if (ref.read(preflightProvider)[last.id]?.isGood ?? false) return last;
+        final allowed = _exitAllowedBy(ref, selection);
+        if ((ref.read(preflightProvider)[last.id]?.isGood ?? false) &&
+            (allowed == null || allowed(last.id))) {
+          return last;
+        }
       }
       final found = await pf.burstFindGood(
         ordered,
         {for (final id in ordered) id: byId[id]!.outbound},
         timeoutMs: timeoutMs,
         deadline: _scanDeadline,
+        accept: _exitAllowedBy(ref, selection),
       );
       if (found != null) return byId[found];
       log.add('warn', 'route',
