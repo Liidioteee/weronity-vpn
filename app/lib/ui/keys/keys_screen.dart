@@ -397,6 +397,25 @@ class _KeysScreenState extends ConsumerState<KeysScreen> {
           data: (data) => ListView(
             padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.sm, WSpace.lg, WSpace.xxl),
             children: [
+              if (data.storageError != null) ...[
+                SectionCard(
+                  padding: const EdgeInsets.all(WSpace.md),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded,
+                          color: WColors.connecting),
+                      const SizedBox(width: WSpace.md),
+                      Expanded(
+                        child: Text(
+                          data.storageError!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: WSpace.md),
+              ],
               if (!_selecting) ...[
                 _ActionsRow(
                   onPaste: _pasteFromClipboard,

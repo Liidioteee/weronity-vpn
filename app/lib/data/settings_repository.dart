@@ -208,40 +208,57 @@ class SettingsRepository {
 
   final Box<dynamic> _box;
 
-  List<String> _list(String key) =>
-      (_box.get(key) as List?)?.cast<String>() ?? const [];
+  // Tolerant readers: a value of the wrong type (a damaged box, a newer build's
+  // format) falls back to the default instead of throwing — settings are read
+  // at startup, and a throw there means the app does not start at all.
+  bool _bool(String key, bool fallback) {
+    final v = _box.get(key);
+    return v is bool ? v : fallback;
+  }
+
+  int _int(String key, int fallback) {
+    final v = _box.get(key);
+    return v is num ? v.toInt() : fallback;
+  }
+
+  String? _string(String key) {
+    final v = _box.get(key);
+    return v is String ? v : null;
+  }
+
+  E _enum<E>(List<E> values, String key, E fallback) {
+    final v = _box.get(key);
+    return v is int && v >= 0 && v < values.length ? values[v] : fallback;
+  }
+
+  List<String>? _listOrNull(String key) {
+    final v = _box.get(key);
+    return v is List ? [for (final e in v) if (e is String) e] : null;
+  }
+
+  List<String> _list(String key) => _listOrNull(key) ?? const [];
 
   Settings load() => Settings(
-        proMode: _box.get('proMode', defaultValue: false) as bool,
-        themeMode: ThemeMode
-            .values[_box.get('themeMode', defaultValue: ThemeMode.dark.index) as int],
-        routingMode: RoutingMode.values[
-            _box.get('routingMode', defaultValue: RoutingMode.smart.index) as int],
-        adBlock: _box.get('adBlock', defaultValue: false) as bool,
-        autoConnectLastNode:
-            _box.get('autoConnectLastNode', defaultValue: true) as bool,
-        poolUrlOverride: _box.get('poolUrlOverride') as String?,
-        preflightEndpoints:
-            (_box.get('preflightEndpoints') as List?)?.cast<String>() ??
-                Settings.defaultPreflightEndpoints,
-        lastGoodNodeId: _box.get('lastGoodNodeId') as String?,
+        proMode: _bool('proMode', false),
+        themeMode: _enum(ThemeMode.values, 'themeMode', ThemeMode.dark),
+        routingMode: _enum(RoutingMode.values, 'routingMode', RoutingMode.smart),
+        adBlock: _bool('adBlock', false),
+        autoConnectLastNode: _bool('autoConnectLastNode', true),
+        poolUrlOverride: _string('poolUrlOverride'),
+        preflightEndpoints: _listOrNull('preflightEndpoints') ??
+            Settings.defaultPreflightEndpoints,
+        lastGoodNodeId: _string('lastGoodNodeId'),
         directRules: _list('directRules'),
         proxyRules: _list('proxyRules'),
         blockRules: _list('blockRules'),
-        connectionMode:
-            ConnectionMode.parse(_box.get('connectionMode', defaultValue: 0)),
-        proxyPort: (_box.get('proxyPort', defaultValue: 55555) as num).toInt(),
-        strictRoute: _box.get('strictRoute', defaultValue: false) as bool,
+        connectionMode: ConnectionMode.parse(_box.get('connectionMode')),
+        proxyPort: _int('proxyPort', 55555).clamp(1024, 65535),
+        strictRoute: _bool('strictRoute', false),
         closeAction: WindowCloseAction.parse(_box.get('closeAction')),
-        checkConcurrency:
-            (_box.get('checkConcurrency', defaultValue: 8) as num)
-                .toInt()
-                .clamp(1, 20),
-        checkTimeoutMs: (_box.get('checkTimeoutMs', defaultValue: 4000) as num)
-            .toInt()
-            .clamp(1000, 15000),
-        autoCheck: _box.get('autoCheck', defaultValue: true) as bool,
-        autoSwitch: _box.get('autoSwitch', defaultValue: true) as bool,
+        checkConcurrency: _int('checkConcurrency', 8).clamp(1, 20),
+        checkTimeoutMs: _int('checkTimeoutMs', 4000).clamp(1000, 15000),
+        autoCheck: _bool('autoCheck', true),
+        autoSwitch: _bool('autoSwitch', true),
       );
 
   Future<void> save(Settings s) async {

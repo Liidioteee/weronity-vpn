@@ -49,6 +49,27 @@ enum NodeSecurity {
       };
 }
 
+/// How well the hop *to the node itself* is protected. Independent of whether
+/// the sites you visit use HTTPS — this is about what your ISP sees.
+enum HopSecurity {
+  /// TLS / Reality / QUIC with a verified certificate, or a cipher of its own.
+  encrypted,
+
+  /// TLS is on but the certificate is not checked (`allowInsecure`): the hop
+  /// can be intercepted by anyone between you and the node.
+  unverified,
+
+  /// Nothing is encrypted on the way to the node (VLESS / Trojan without TLS,
+  /// a `none` cipher): the ISP sees which hosts you open.
+  plaintext;
+
+  String get label => switch (this) {
+        HopSecurity.encrypted => 'Шифруется',
+        HopSecurity.unverified => 'Сертификат не проверяется',
+        HopSecurity.plaintext => 'Без шифрования',
+      };
+}
+
 class Endpoint {
   const Endpoint({required this.host, required this.port, this.resolvedIp});
 
@@ -239,6 +260,31 @@ class Node {
 
   bool get isCustom => provenance.isCustom;
   String get countryCode => geo.country ?? '??';
+
+  /// Derived from the outbound the engine will actually run, so it holds for
+  /// pool nodes and imported keys alike.
+  HopSecurity get hopSecurity {
+    final tls = outbound['tls'];
+    if (tls is Map && tls['enabled'] == true) {
+      return tls['insecure'] == true
+          ? HopSecurity.unverified
+          : HopSecurity.encrypted;
+    }
+    const noCipher = {'none', 'plain', 'zero'};
+    return switch (protocol) {
+      // No encryption of their own — they rely on TLS entirely.
+      'vless' || 'trojan' => HopSecurity.plaintext,
+      'shadowsocks' => noCipher.contains('${outbound['method']}'.toLowerCase())
+          ? HopSecurity.plaintext
+          : HopSecurity.encrypted,
+      'vmess' => noCipher.contains('${outbound['security']}'.toLowerCase())
+          ? HopSecurity.plaintext
+          : HopSecurity.encrypted,
+      _ => HopSecurity.encrypted,
+    };
+  }
+
+  bool get isHopSecure => hopSecurity == HopSecurity.encrypted;
   String get displayFlag => geo.flag ?? '🏳️';
 
   /// Narrow copy — currently only [geo] needs overriding (imported keys get a

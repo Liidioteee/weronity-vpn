@@ -13,10 +13,13 @@ import '../../state/providers.dart';
 import '../common/flag.dart';
 import '../common/widgets.dart';
 
-/// Phase 3.1 verification: boot the real sing-box engine for the fastest live
-/// node, entirely separate from the stub `ConnectionController`. Shows the log
-/// stream and the built-in self-test (one HTTP request through the loopback
-/// SOCKS inbound).
+/// Phase 3.1 verification: boot the real sing-box engine for a live node and
+/// show its log stream and built-in self-test (one HTTP request through the
+/// loopback SOCKS inbound).
+///
+/// The native core has **one** engine. This sheet therefore refuses to run
+/// while the main connection is up, and only ever stops an engine it started
+/// itself — it used to stop whatever was running when it closed.
 Future<void> showCoreProbeSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -40,10 +43,13 @@ class _CoreProbeSheetState extends ConsumerState<_CoreProbeSheet> {
   bool _running = false;
   Node? _node;
 
+  /// True while the engine that is running was started by this sheet.
+  bool _ownsEngine = false;
+
   @override
   void dispose() {
     _poll?.cancel();
-    if (_core.isRunning()) _core.stop();
+    if (_ownsEngine && _core.isRunning()) _core.stop();
     super.dispose();
   }
 
@@ -60,13 +66,24 @@ class _CoreProbeSheetState extends ConsumerState<_CoreProbeSheet> {
     return pickLowestPing(alive);
   }
 
-  void _start() {
+  Future<void> _start() async {
+    // Never on top of the user's connection: a second start is a no-op in the
+    // core, and everything this sheet did next would act on *their* session.
+    if (ref.read(connectionControllerProvider).isActive || _core.isRunning()) {
+      setState(() => _log.add('движок занят основным подключением'));
+      return;
+    }
     final node = _pickNode();
     if (node == null) {
       setState(() => _log.add('нет живых узлов в пуле'));
       return;
     }
-    final rc = _core.startNode(node.outbound);
+    final rc = await _core.startNodesAsync([node.outbound]);
+    if (!mounted) {
+      if (rc == 0) _core.stop();
+      return;
+    }
+    _ownsEngine = rc == 0;
     setState(() {
       _node = node;
       _running = rc == 0;
@@ -83,7 +100,10 @@ class _CoreProbeSheetState extends ConsumerState<_CoreProbeSheet> {
 
   void _tick() {
     if (!mounted) return;
-    final events = _core.drainEvents();
+    // The event queue is shared with the main connection — only read it while
+    // the engine is ours.
+    final events =
+        _ownsEngine ? _core.drainEvents() : const <Map<String, dynamic>>[];
     final stats = _core.stats() ?? const {};
     setState(() {
       for (final e in events) {
@@ -97,9 +117,10 @@ class _CoreProbeSheetState extends ConsumerState<_CoreProbeSheet> {
   }
 
   void _stop() {
-    _core.stop();
+    if (_ownsEngine) _core.stop();
     _poll?.cancel();
     _tick();
+    _ownsEngine = false;
     setState(() => _running = false);
   }
 
@@ -108,6 +129,8 @@ class _CoreProbeSheetState extends ConsumerState<_CoreProbeSheet> {
     final self = (_stats['self_test'] as Map?)?.cast<String, dynamic>() ??
         const <String, dynamic>{};
     final port = _stats['socks_port'];
+    final mainActive =
+        ref.watch(connectionControllerProvider.select((c) => c.isActive));
 
     return DraggableScrollableSheet(
       expand: false,
@@ -130,9 +153,12 @@ class _CoreProbeSheetState extends ConsumerState<_CoreProbeSheet> {
           ),
           const SizedBox(height: WSpace.xs),
           Text(
-            'Запускает настоящий движок для самого быстрого узла из пула и '
-            'делает один тестовый запрос через локальный SOCKS. Не влияет на '
-            'основное подключение.',
+            mainActive
+                ? 'Проверка использует тот же движок, что и основное '
+                    'подключение. Отключитесь на главном экране, чтобы её '
+                    'запустить.'
+                : 'Запускает настоящий движок для случайного рекомендованного '
+                    'узла и делает один тестовый запрос через локальный SOCKS.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -179,7 +205,7 @@ class _CoreProbeSheetState extends ConsumerState<_CoreProbeSheet> {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: _running ? null : _start,
+                  onPressed: (_running || mainActive) ? null : _start,
                   icon: const Icon(Icons.play_arrow_rounded),
                   label: const Text('Запустить'),
                 ),

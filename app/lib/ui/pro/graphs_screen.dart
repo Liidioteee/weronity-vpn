@@ -137,10 +137,18 @@ class GraphsScreen extends ConsumerWidget {
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 38,
-            getTitlesWidget: (v, meta) => Text(
-              v >= 100 ? v.toStringAsFixed(0) : v.toStringAsFixed(1),
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
+            getTitlesWidget: (v, meta) {
+              // fl_chart also labels the axis maximum; unless it falls on the
+              // grid it lands right on top of the nearest gridline label.
+              final steps = v / meta.appliedInterval;
+              if (v == meta.max && (steps - steps.round()).abs() > 1e-6) {
+                return const SizedBox.shrink();
+              }
+              return Text(
+                v >= 100 ? v.toStringAsFixed(0) : v.toStringAsFixed(1),
+                style: Theme.of(context).textTheme.labelSmall,
+              );
+            },
           ),
         ),
       ),

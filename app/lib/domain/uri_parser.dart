@@ -43,13 +43,15 @@ const _netMap = {
   'gun': 'grpc',
   'http': 'h2',
   'h2': 'h2',
+  'h2mux': 'h2',
   'httpupgrade': 'httpupgrade',
-  'xhttp': 'httpupgrade',
-  'splithttp': 'httpupgrade',
-  'kcp': 'mkcp',
-  'mkcp': 'mkcp',
-  'quic': 'quic',
 };
+
+// Xray-only transports. sing-box has no XHTTP/SplitHTTP (they are *not*
+// HTTPUpgrade), no mKCP and no TCP+HTTP-header obfuscation: such a key would
+// import fine and then never carry traffic. Refuse it at parse time, exactly
+// like collector/parsers/{vless,vmess}.py.
+const _unsupportedNets = {'xhttp', 'splithttp', 'kcp', 'mkcp', 'quic'};
 
 // --- public API -----------------------------------------------------------
 
@@ -67,13 +69,16 @@ Node? parseProxyUri(String uri, {String source = 'custom'}) {
       'tuic' => _tuic(trimmed),
       _ => null,
     };
-    return parsed?._toNode(source: source);
+    if (parsed == null || !_validPort(parsed.port)) return null;
+    return parsed._toNode(source: source);
   } on ProxyUriError {
     return null;
   } catch (_) {
     return null;
   }
 }
+
+bool _validPort(int port) => port >= 1 && port <= 65535;
 
 /// Extract every supported proxy URI from a blob of text and parse them.
 List<String> extractProxyUris(String text) {
@@ -313,6 +318,22 @@ Map<String, String> _query(String q) {
   return Uri.splitQueryString(q);
 }
 
+/// The first non-empty value among [keys] (the Python parsers' `first()`).
+String? _first(Map<String, String> q, List<String> keys) {
+  for (final k in keys) {
+    final v = q[k];
+    if (v != null && v.isNotEmpty) return v;
+  }
+  return null;
+}
+
+String _transportOf(String scheme, String net) {
+  if (_unsupportedNets.contains(net)) {
+    throw ProxyUriError('$scheme: transport $net is not supported by sing-box');
+  }
+  return _netMap[net] ?? (throw ProxyUriError('$scheme: net $net'));
+}
+
 List<String> _csv(String? v) =>
     (v == null || v.isEmpty) ? const [] : v.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
 
@@ -331,13 +352,16 @@ _Parsed _vless(String uri) {
   if (a.userinfo.isEmpty) throw ProxyUriError('vless: empty uuid');
   final q = _query(query);
   final net = (q['type'] ?? 'tcp').toLowerCase();
-  final transport = _netMap[net] ?? (throw ProxyUriError('vless: net $net'));
+  final transport = _transportOf('vless', net);
+  if (transport == 'tcp' && q['headerType'] == 'http') {
+    throw ProxyUriError('vless: tcp + http header obfuscation is not supported');
+  }
   final security = (q['security'] ?? 'none').toLowerCase();
   final params = <String, dynamic>{
     'uuid': a.userinfo,
     'security': security,
     if (q['flow'] != null && q['flow']!.isNotEmpty) 'flow': q['flow'],
-    if ((q['sni'] ?? q['servername']) case final s? when s.isNotEmpty) 'sni': s,
+    'sni': ?_first(q, const ['sni', 'peer', 'servername']),
     if (_csv(q['alpn']).isNotEmpty) 'alpn': _csv(q['alpn']),
     if (q['fp'] != null && q['fp']!.isNotEmpty) 'fingerprint': q['fp'],
     'allow_insecure': _bool(q['allowInsecure'] ?? q['insecure']),
@@ -377,12 +401,13 @@ _Parsed _trojan(String uri) {
   final a = _splitAuthority(rest);
   if (a.userinfo.isEmpty) throw ProxyUriError('trojan: empty password');
   final q = _query(query);
-  final net = (q['type'] ?? 'tcp').toLowerCase();
-  final transport = _netMap[net.isEmpty ? 'tcp' : net] ?? 'tcp';
+  final net = (q['type'] ?? '').toLowerCase();
+  final transport =
+      (net.isEmpty || net == 'original') ? 'tcp' : _transportOf('trojan', net);
   final params = <String, dynamic>{
     'password': a.userinfo,
     'security': (q['security'] ?? 'tls').toLowerCase(),
-    'sni': (q['sni'] ?? q['servername'])?.isNotEmpty == true ? (q['sni'] ?? q['servername']) : a.host,
+    'sni': _first(q, const ['sni', 'peer', 'servername']) ?? a.host,
     if (_csv(q['alpn']).isNotEmpty) 'alpn': _csv(q['alpn']),
     if ((q['fp'] ?? '').isNotEmpty) 'fingerprint': q['fp'],
     'allow_insecure': _bool(q['allowInsecure'] ?? q['insecure']),
@@ -391,7 +416,7 @@ _Parsed _trojan(String uri) {
     params['path'] = q['path'] ?? '/';
     if ((q['host'] ?? '').isNotEmpty) params['host_header'] = q['host'];
   } else if (transport == 'grpc') {
-    params['service_name'] = q['serviceName'] ?? '';
+    params['service_name'] = q['serviceName'] ?? q['servicename'] ?? '';
   }
   return _Parsed(
     protocol: 'trojan',
@@ -420,16 +445,17 @@ _Parsed _hysteria2(String uri) {
   final params = <String, dynamic>{
     'password': a.userinfo,
     'security': 'tls',
-    if ((q['sni'] ?? q['servername'])?.isNotEmpty == true) 'sni': q['sni'] ?? q['servername'],
+    'sni': ?_first(q, const ['sni', 'peer', 'servername']),
     'alpn': _csv(q['alpn']).isEmpty ? ['h3'] : _csv(q['alpn']),
-    'allow_insecure': _bool(q['insecure'] ?? q['allowInsecure']),
+    'allow_insecure': _bool(q['insecure']) || _bool(q['allowInsecure']),
     'up_mbps': ?_int(q['up'] ?? q['upmbps']),
     'down_mbps': ?_int(q['down'] ?? q['downmbps']),
   };
   final obfs = (q['obfs'] ?? '').toLowerCase();
-  if (obfs == 'salamander') {
+  if (obfs == 'salamander' || obfs == 'salamanderv2') {
     params['obfs'] = 'salamander';
-    params['obfs_password'] = q['obfs-password'] ?? q['obfsParam'];
+    params['obfs_password'] =
+        _first(q, const ['obfs-password', 'obfsParam', 'obfs_password']);
   }
   return _Parsed(
     protocol: 'hysteria2',
@@ -468,10 +494,12 @@ _Parsed _tuic(String uri) {
       'uuid': parts[0],
       'password': parts.sublist(1).join(':'),
       'security': 'tls',
-      if ((q['sni'] ?? q['servername'])?.isNotEmpty == true) 'sni': q['sni'] ?? q['servername'],
+      'sni': ?_first(q, const ['sni', 'peer', 'servername']),
       'alpn': _csv(q['alpn']).isEmpty ? ['h3'] : _csv(q['alpn']),
-      'congestion_control': q['congestion_control'] ?? 'bbr',
-      'udp_relay_mode': q['udp_relay_mode'] ?? 'native',
+      'congestion_control':
+          _first(q, const ['congestion_control', 'congestion-control']) ?? 'bbr',
+      'udp_relay_mode':
+          _first(q, const ['udp_relay_mode', 'udp-relay-mode']) ?? 'native',
       'allow_insecure': _bool(q['allow_insecure'] ?? q['insecure']),
     },
   );
@@ -494,7 +522,10 @@ _Parsed _vmess(String uri) {
   final uuid = (obj['id'] ?? '').toString();
   if (uuid.isEmpty) throw ProxyUriError('vmess: missing id');
   final net = (obj['net'] ?? 'tcp').toString().toLowerCase();
-  final transport = _netMap[net] ?? (throw ProxyUriError('vmess: net $net'));
+  final transport = _transportOf('vmess', net);
+  if (transport == 'tcp' && '${obj['type'] ?? ''}' == 'http') {
+    throw ProxyUriError('vmess: tcp + http header obfuscation is not supported');
+  }
   final tls = (obj['tls'] ?? '').toString().toLowerCase();
   final params = <String, dynamic>{
     'uuid': uuid,
@@ -504,6 +535,7 @@ _Parsed _vmess(String uri) {
     if ((obj['sni'] ?? obj['host'])?.toString().isNotEmpty == true)
       'sni': (obj['sni'] ?? obj['host']).toString(),
     if (_csv(obj['alpn']?.toString()).isNotEmpty) 'alpn': _csv(obj['alpn']?.toString()),
+    if ((obj['fp'] ?? '').toString().isNotEmpty) 'fingerprint': obj['fp'].toString(),
   };
   if (transport == 'ws' || transport == 'httpupgrade' || transport == 'h2') {
     params['path'] = (obj['path'] ?? '/').toString();
@@ -527,7 +559,14 @@ _Parsed _shadowsocks(String uri) {
   final (body, name) = _splitFragment(uri);
   var rest = body.substring('ss://'.length);
   final qi = rest.indexOf('?');
-  if (qi >= 0) rest = rest.substring(0, qi);
+  if (qi >= 0) {
+    // A SIP003 plugin (obfs, v2ray-plugin, shadow-tls…) changes the wire
+    // protocol and the core never runs one — without it the key cannot work.
+    if (_query(rest.substring(qi + 1))['plugin']?.isNotEmpty ?? false) {
+      throw ProxyUriError('ss: SIP003 plugin keys are not supported');
+    }
+    rest = rest.substring(0, qi);
+  }
 
   String method;
   String password;
@@ -552,7 +591,7 @@ _Parsed _shadowsocks(String uri) {
     method = userinfo.substring(0, ci);
     password = userinfo.substring(ci + 1);
     final c = hostport.lastIndexOf(':');
-    host = hostport.substring(0, c);
+    host = hostport.substring(0, c).replaceAll(RegExp(r'^\[|\]$'), '');
     port = int.parse(hostport.substring(c + 1));
   }
   return _Parsed(
@@ -612,7 +651,7 @@ List<Node> _parseClash(String text, {required String source}) {
     if (protocol == null) continue;
     final server = '${raw['server'] ?? ''}'.trim();
     final port = int.tryParse('${raw['port']}');
-    if (server.isEmpty || port == null) continue;
+    if (server.isEmpty || port == null || !_validPort(port)) continue;
 
     var network = _netMap['${raw['network'] ?? 'tcp'}'.toLowerCase()] ?? 'tcp';
     if (protocol == 'hysteria2' || protocol == 'tuic') network = 'quic';

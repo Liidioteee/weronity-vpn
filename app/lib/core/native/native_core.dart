@@ -48,13 +48,26 @@ class NativeCore {
 
   factory NativeCore.instance() => _instance ??= _load();
 
-  /// Library names to try, in order. Shared with the isolate helper.
-  static List<String> _libNames() => switch (_os()) {
-        _Os.windows => const ['weronity_core.dll'],
-        _Os.linux => const ['libweronity_core.so', 'weronity_core.so'],
-        _Os.android => const ['libweronity_core.so'],
-        _Os.other => const <String>[],
-      };
+  /// Library paths to try, in order. Shared with the isolate helpers.
+  ///
+  /// On desktop these are **absolute paths next to the executable**, never a
+  /// bare name: a bare name goes through the OS search order (current
+  /// directory, PATH…), and this process may be running elevated for VPN mode —
+  /// a planted `weronity_core.dll` must not get loaded as administrator.
+  static List<String> _libNames() {
+    final sep = Platform.pathSeparator;
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    return switch (_os()) {
+      _Os.windows => ['$exeDir${sep}weronity_core.dll'],
+      _Os.linux => [
+          '$exeDir${sep}lib${sep}libweronity_core.so',
+          '$exeDir${sep}libweronity_core.so',
+        ],
+      // Android resolves a bare soname inside the APK's own lib directory.
+      _Os.android => const ['libweronity_core.so'],
+      _Os.other => const <String>[],
+    };
+  }
 
   static NativeCore _load() {
     final names = _libNames();
@@ -133,8 +146,12 @@ class NativeCore {
   /// *first* entry fails the start.
   ///
   /// [mode] `'proxy'` opens a loopback proxy on 127.0.0.1:[listenPort]
-  /// (0 = pick free; default 55555); `'vpn'` builds the system-wide TUN.
+  /// (0 = let the OS pick a free port); `'vpn'` builds the system-wide TUN.
   /// [strictRoute] applies to VPN mode only.
+  ///
+  /// **Blocks the calling isolate** until the engine is up — in VPN mode that
+  /// includes creating the TUN adapter and can take seconds. UI code uses
+  /// [startNodesAsync].
   int startNodes(
     List<Map<String, dynamic>> outbounds, {
     String mode = 'proxy',
@@ -145,21 +162,60 @@ class NativeCore {
   }) {
     final fn = _start;
     if (fn == null || outbounds.isEmpty) return -1;
-    final payload = jsonEncode({
-      'outbounds': outbounds,
-      'mode': mode,
-      'listen_port': listenPort,
-      'self_test': selfTest,
-      'strict_route': strictRoute,
-      'log_level': logLevel,
-    });
-    final p = payload.toNativeUtf8();
+    final p = _startPayload(
+      outbounds,
+      mode: mode,
+      listenPort: listenPort,
+      selfTest: selfTest,
+      strictRoute: strictRoute,
+      logLevel: logLevel,
+    ).toNativeUtf8();
     try {
       return fn(p);
     } finally {
       malloc.free(p);
     }
   }
+
+  /// [startNodes] on a helper isolate, so the UI keeps painting while the
+  /// engine (and, in VPN mode, the TUN adapter) comes up. The engine state is
+  /// process-wide, so [stats] / [drainEvents] on this isolate see the result.
+  Future<int> startNodesAsync(
+    List<Map<String, dynamic>> outbounds, {
+    String mode = 'proxy',
+    int listenPort = 0,
+    bool selfTest = true,
+    bool strictRoute = false,
+    String logLevel = 'info',
+  }) {
+    if (!isAvailable || outbounds.isEmpty) return Future<int>.value(-1);
+    final payload = _startPayload(
+      outbounds,
+      mode: mode,
+      listenPort: listenPort,
+      selfTest: selfTest,
+      strictRoute: strictRoute,
+      logLevel: logLevel,
+    );
+    return Isolate.run(() => _runStart(payload));
+  }
+
+  static String _startPayload(
+    List<Map<String, dynamic>> outbounds, {
+    required String mode,
+    required int listenPort,
+    required bool selfTest,
+    required bool strictRoute,
+    required String logLevel,
+  }) =>
+      jsonEncode({
+        'outbounds': outbounds,
+        'mode': mode,
+        'listen_port': listenPort,
+        'self_test': selfTest,
+        'strict_route': strictRoute,
+        'log_level': logLevel,
+      });
 
   /// Single-node convenience wrapper around [startNodes].
   int startNode(
@@ -188,9 +244,17 @@ class NativeCore {
   /// stopped) and the caller should fall back to stop/start.
   bool selectCandidate(int index) => (_selectCandidate?.call(index) ?? 1) == 0;
 
+  /// Stops the engine. **Blocks** until the tunnel is torn down — see
+  /// [stopAsync] for UI code.
   int stop() => _stop?.call() ?? -1;
 
-  /// `{running, socks_port, uptime_ms, self_test:{done,ok,status,latency_ms}}`.
+  /// [stop] on a helper isolate: a TUN teardown that stalls must not freeze
+  /// the window with it.
+  Future<int> stopAsync() =>
+      isAvailable ? Isolate.run(_runStop) : Future<int>.value(-1);
+
+  /// `{running, mode, listen, socks_port, up_bytes, down_bytes, up_bps,
+  /// down_bps, ping_ms, uptime_ms, self_test:{done,ok,status,latency_ms}, …}`.
   Map<String, dynamic>? stats() {
     final s = _takeString(_stats);
     if (s == null) return null;
@@ -237,18 +301,43 @@ class NativeCore {
   }
 }
 
-/// Isolate entrypoint: opens its own handle to the native library, calls
-/// `wrnTestNode`, frees the result. Must be a top-level function.
-Map<String, dynamic>? _runTestNode(String payload) {
-  DynamicLibrary? lib;
+/// Opens a handle to the native library from a helper isolate (handles are
+/// per-isolate; the library and its state are process-wide).
+DynamicLibrary? _openLib() {
   for (final name in NativeCore._libNames()) {
     try {
-      lib = DynamicLibrary.open(name);
-      break;
+      return DynamicLibrary.open(name);
     } on Object {
       // try the next name
     }
   }
+  return null;
+}
+
+/// Isolate entrypoint for [NativeCore.startNodesAsync].
+int _runStart(String payload) {
+  final lib = _openLib();
+  if (lib == null) return -1;
+  final start = lib.lookupFunction<_StartC, _StartDart>('wrnStart');
+  final p = payload.toNativeUtf8();
+  try {
+    return start(p);
+  } finally {
+    malloc.free(p);
+  }
+}
+
+/// Isolate entrypoint for [NativeCore.stopAsync].
+int _runStop() {
+  final lib = _openLib();
+  if (lib == null) return -1;
+  return lib.lookupFunction<_IntRetC, _IntRetDart>('wrnStop')();
+}
+
+/// Isolate entrypoint: opens its own handle to the native library, calls
+/// `wrnTestNode`, frees the result. Must be a top-level function.
+Map<String, dynamic>? _runTestNode(String payload) {
+  final lib = _openLib();
   if (lib == null) return null;
   final test = lib.lookupFunction<_StrArgC, _StrArgDart>('wrnTestNode');
   final free = lib.lookupFunction<_FreeC, _FreeDart>('wrnFree');

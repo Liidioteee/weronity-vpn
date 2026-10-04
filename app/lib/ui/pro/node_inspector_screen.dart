@@ -27,40 +27,59 @@ class NodeInspectorScreen extends ConsumerWidget {
     final shown = ref.watch(filteredNodesProvider);
     final filter = ref.watch(filterProvider);
 
-    return ListView(
+    // Built lazily: the pool is hundreds of nodes, and every row watches its
+    // own probe — building them all on each filter change was the slow part.
+    const header = 2;
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(
         WSpace.lg,
         WSpace.md,
         WSpace.lg,
         WSpace.xxl,
       ),
-      children: [
-        _FilterPanel(all: all, filter: filter, shownCount: shown.length),
-        const SizedBox(height: WSpace.sm),
-        _PreflightBar(nodes: shown),
-        const SizedBox(height: WSpace.md),
-        if (shown.isEmpty)
-          const Padding(
+      itemCount: header + (shown.isEmpty ? 1 : shown.length),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: WSpace.sm),
+            child:
+                _FilterPanel(all: all, filter: filter, shownCount: shown.length),
+          );
+        }
+        if (index == 1) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: WSpace.md),
+            child: _PreflightBar(nodes: shown),
+          );
+        }
+        if (shown.isEmpty) {
+          return const Padding(
             padding: EdgeInsets.only(top: WSpace.xl),
             child: EmptyState(
               icon: Icons.filter_alt_off_rounded,
               title: 'Под фильтр ничего не подходит',
               subtitle: 'Ослабьте условия или сбросьте фильтр.',
             ),
-          )
-        else
-          for (var i = 0; i < shown.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: WSpace.sm),
-              child: FadeSlideIn(
-                delay: Duration(milliseconds: 12 * (i < 12 ? i : 12)),
-                child: _NodeRow(
-                  node: shown[i],
-                  onTap: () => _showNodeSheet(context, ref, shown[i]),
-                ),
-              ),
-            ),
-      ],
+          );
+        }
+        final i = index - header;
+        final node = shown[i];
+        final row = _NodeRow(
+          key: ValueKey<String>(node.id),
+          node: node,
+          onTap: () => _showNodeSheet(context, ref, node),
+        );
+        return Padding(
+          padding: const EdgeInsets.only(bottom: WSpace.sm),
+          // Only the first screenful gets the staggered entrance.
+          child: i < 12
+              ? FadeSlideIn(
+                  delay: Duration(milliseconds: 12 * i),
+                  child: row,
+                )
+              : row,
+        );
+      },
     );
   }
 }
@@ -514,7 +533,7 @@ class _VerdictChip extends StatelessWidget {
 }
 
 class _NodeRow extends ConsumerWidget {
-  const _NodeRow({required this.node, required this.onTap});
+  const _NodeRow({required this.node, required this.onTap, super.key});
   final Node node;
   final VoidCallback onTap;
 
@@ -603,12 +622,19 @@ Future<void> _showNodeSheet(
     );
     await controller.select(sel, resolve);
     if (!controller.isActive) await controller.connect(resolve);
-    await ref.read(settingsProvider.notifier).rememberLastGoodNode(node.id);
+    final connected = controller.status == ConnectionStatus.protected &&
+        controller.activeNode?.id == node.id;
+    if (connected) {
+      await ref.read(settingsProvider.notifier).rememberLastGoodNode(node.id);
+    }
     if (context.mounted) Navigator.of(context).pop();
+    final name = node.tag.isEmpty ? node.endpoint.host : node.tag;
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          'Узел ${node.tag.isEmpty ? node.endpoint.host : node.tag} выбран',
+          connected
+              ? 'Подключено к узлу $name'
+              : 'Не удалось подключиться к узлу $name',
         ),
       ),
     );

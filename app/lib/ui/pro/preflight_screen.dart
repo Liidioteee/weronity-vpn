@@ -63,8 +63,10 @@ class _PreflightScreenState extends ConsumerState<PreflightScreen> {
       ),
       children: [
         Text(
-          'Узел считается рабочим, если ответ приходит быстрее 500 мс и это '
-          'не страница-заглушка блокировки или капча.',
+          'Узел считается рабочим, если приходит настоящий ответ, а не '
+          'страница-заглушка блокировки или капча. Ответ дольше 900 мс '
+          'помечается как «медленный». За одну проверку опрашивается не '
+          'больше 8 адресов.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

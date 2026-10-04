@@ -28,10 +28,12 @@ class HomeScreen extends ConsumerWidget {
     }
 
     var resolve = ref.read(resolveSelectionProvider);
-    // "⚡ Авто" ranks by the collector's ping, which does not mean the node
-    // works from here. Find one that actually answers before we connect.
-    if (controller.selection.isAuto) {
-      final picked = await ref.read(autoConnectPickProvider)();
+    // The plain ranking goes by the collector's ping, which does not mean the
+    // node works from here. Find one that actually answers before we connect
+    // (and prefer the node that worked last time, if the setting is on).
+    if (controller.selection.node == null) {
+      final picked =
+          await ref.read(connectPickProvider)(controller.selection);
       if (picked != null) resolve = (_) => picked;
     }
 
@@ -46,6 +48,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.watch(connectionControllerProvider);
     final phase = ref.watch(connectPhaseProvider);
+    final notice = ref.watch(connectionNoticeProvider);
     final poolAsync = ref.watch(poolProvider);
     final proMode = ref.watch(settingsProvider.select((s) => s.proMode));
 
@@ -87,6 +90,16 @@ class HomeScreen extends ConsumerWidget {
                 WSpace.xxl,
               ),
               children: [
+                // Debug builds without the native core run the demo engine:
+                // say so, loudly — nothing is tunnelled.
+                if (controller is ConnectionController)
+                  const Center(
+                    child: Tag(
+                      'Демо-режим · ядро не загружено, туннеля нет',
+                      color: WColors.danger,
+                      icon: Icons.science_rounded,
+                    ),
+                  ),
                 const SizedBox(height: WSpace.xl),
                 Center(
                   child: PowerButton(
@@ -101,7 +114,7 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: WSpace.xl),
-                _StatusLine(controller: controller, phase: phase),
+                _StatusLine(controller: controller, phase: phase, notice: notice),
                 const SizedBox(height: WSpace.xl),
                 FadeSlideIn(
                   child: _SelectionCard(controller: controller),
@@ -130,11 +143,15 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.controller, this.phase});
+  const _StatusLine({required this.controller, this.phase, this.notice});
   final ConnectionEngine controller;
 
   /// Set while a pre-connect scan is running — see `connectPhaseProvider`.
   final String? phase;
+
+  /// The monitor's warning about a session that is up but not working — see
+  /// `connectionNoticeProvider`.
+  final String? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +166,7 @@ class _StatusLine extends StatelessWidget {
     final label = phase ??
         (controller.isSwitching ? 'Смена локации…' : s.label);
     final key = ValueKey<String>(
-      '$label|${controller.activeNode?.id}|${controller.lastError}',
+      '$label|${controller.activeNode?.id}|${controller.lastError}|$notice',
     );
 
     return AnimatedSwitcher(
@@ -200,6 +217,21 @@ class _StatusLine extends StatelessWidget {
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
+                  ),
+                ],
+                if (!controller.activeNode!.isHopSecure) ...[
+                  const SizedBox(height: WSpace.sm),
+                  HopSecurityTag(controller.activeNode!.hopSecurity),
+                ],
+                if (notice != null) ...[
+                  const SizedBox(height: WSpace.sm),
+                  Text(
+                    notice!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: WColors.connecting),
                   ),
                 ],
               ],

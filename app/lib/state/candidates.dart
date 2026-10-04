@@ -11,7 +11,8 @@ import '../domain/node.dart';
 ///
 /// Order matters: the failover path walks the same preference order (same
 /// country → recommended → the rest), so the nodes most likely to be needed sit
-/// in the group. Within each tier the lowest measured ping wins.
+/// in the group. Within each tier a node whose hop is properly encrypted beats
+/// one that is not ([Node.isHopSecure]), then the lowest measured ping wins.
 List<Node> backupCandidates(
   Node primary,
   List<Node> pool, {
@@ -29,11 +30,23 @@ List<Node> backupCandidates(
   ]..sort((a, b) {
       final byTier = tier(a).compareTo(tier(b));
       if (byTier != 0) return byTier;
+      final bySecurity = _insecure(a).compareTo(_insecure(b));
+      if (bySecurity != 0) return bySecurity;
       return _ping(a).compareTo(_ping(b));
     });
 
   return ranked.length <= limit ? ranked : ranked.sublist(0, limit);
 }
+
+/// The automatic choice ("⚡ Авто", a country) prefers nodes whose hop is
+/// properly encrypted: the unencrypted / unverified ones are used only when
+/// nothing else is alive. Picking such a node by hand is still allowed.
+Iterable<Node> preferSecure(Iterable<Node> nodes) {
+  final secure = nodes.where((n) => n.isHopSecure);
+  return secure.isNotEmpty ? secure : nodes;
+}
+
+int _insecure(Node n) => n.isHopSecure ? 0 : 1;
 
 /// Nodes with no measurement sort last rather than first.
 int _ping(Node n) {

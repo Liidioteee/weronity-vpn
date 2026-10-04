@@ -113,6 +113,15 @@ class KeyBundle {
       );
 }
 
+/// The OS secure store refused a write (no keyring on Linux, a locked
+/// credential store…). The caller decides how to tell the user.
+class KeyStorageException implements Exception {
+  KeyStorageException(this.cause);
+  final Object cause;
+  @override
+  String toString() => 'KeyStorageException: ${cause.runtimeType}';
+}
+
 /// Persists custom keys and subscription URLs in the OS secure store.
 class CustomKeysRepository {
   CustomKeysRepository([FlutterSecureStorage? store])
@@ -147,11 +156,14 @@ class CustomKeysRepository {
     }
   }
 
+  /// Throws [KeyStorageException] when the store rejects the write — silently
+  /// dropping it would lose the user's keys on the next start without a word.
   Future<void> _save(String key, Iterable<Map<String, dynamic>> data) async {
     try {
       await _store.write(key: key, value: jsonEncode(data.toList()));
     } catch (e) {
-      debugPrint('CustomKeysRepository: write "$key" failed ($e)');
+      debugPrint('CustomKeysRepository: write "$key" failed (${e.runtimeType})');
+      throw KeyStorageException(e);
     }
   }
 
