@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/node.dart';
+import 'custom_keys.dart' show geoIpServiceProvider;
 import 'exit_geo.dart';
 import 'providers.dart';
 
@@ -288,8 +289,14 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
       summary = {'err': '$e'};
     }
     // Every check is also a chance to learn where the node really exits.
-    if (summary?['exit_country'] case final String cc) {
-      ref.read(exitGeoProvider.notifier).record(id, cc);
+    if (summary != null && summary['exit_country'] != null) {
+      ref.read(exitGeoProvider.notifier).record(
+            id,
+            exitGeoFromProbe(
+              summary,
+              ref.read(geoIpServiceProvider).valueOrNull,
+            ),
+          );
     }
     var result = summary == null
         ? const NodeProbe(verdict: ProbeVerdict.error, error: 'ядро недоступно')

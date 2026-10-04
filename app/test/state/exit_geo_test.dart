@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:weronity/core/connection_controller.dart';
+import 'package:weronity/data/geoip_service.dart';
 import 'package:weronity/domain/node.dart';
 import 'package:weronity/state/exit_geo.dart';
 import 'package:weronity/state/monitor.dart';
@@ -9,7 +12,8 @@ import 'package:weronity/state/preflight.dart';
 import 'package:weronity/state/providers.dart';
 
 /// A node's listed country is a GeoIP guess about its entry address; these
-/// tests cover replacing it with the country its traffic was *seen* to exit in.
+/// tests cover replacing it with the country its traffic was *seen* to exit in
+/// — and not promising a country the geolocation sources cannot agree on.
 
 class _FakeBox implements Box<dynamic> {
   final Map<dynamic, dynamic> m = {};
@@ -48,15 +52,17 @@ ProviderContainer _container([_FakeBox? session]) => ProviderContainer(
       ],
     );
 
-void main() {
-  group('parseTraceCountry', () {
-    test('reads the loc line of a real trace body', () {
-      const body = 'fl=123abc\nh=www.cloudflare.com\nip=50.7.120.162\n'
-          'ts=1.5\ncolo=AMS\nloc=NL\ntls=TLSv1.3\n';
-      expect(parseTraceCountry(body), 'NL');
-    });
+const _us = ExitGeo(country: 'US', sources: 3);
+const _nl = ExitGeo(country: 'NL', sources: 3);
 
-    test('normalises case and line endings', () {
+void main() {
+  group('reading the sources', () {
+    const trace = 'fl=123abc\nh=www.cloudflare.com\nip=45.207.207.25\n'
+        'ts=1.5\ncolo=LAX\nloc=US\ntls=TLSv1.3\n';
+
+    test('country and address from a trace body', () {
+      expect(parseTraceCountry(trace), 'US');
+      expect(parseTraceIp(trace), '45.207.207.25');
       expect(parseTraceCountry('ip=1.2.3.4\r\nloc=de\r\n'), 'DE');
     });
 
@@ -67,6 +73,88 @@ void main() {
       expect(parseTraceCountry('loc=NLD\n'), isNull);
       expect(parseTraceCountry('<html>blocked</html>'), isNull);
       expect(parseTraceCountry(''), isNull);
+      expect(parseTraceIp('loc=US\n'), isNull);
+    });
+
+    test('the second opinion', () {
+      expect(parseCountryIs('{"ip":"45.207.207.25","country":"SC"}'), 'SC');
+      expect(parseCountryIs('{"ip":"1.2.3.4","country":"us"}'), 'US');
+      expect(parseCountryIs('{"ip":"1.2.3.4"}'), isNull);
+      expect(parseCountryIs('{"country":"XX"}'), isNull);
+      expect(parseCountryIs('<html>rate limited</html>'), isNull);
+      expect(parseCountryIs(''), isNull);
+    });
+
+    test('the bundled table gives a third opinion for an IPv4 exit', () {
+      final table = GeoIpService.parseBytes(
+        File('assets/geoip/ipv4_country.v2.bin').readAsBytesSync(),
+      );
+      expect(offlineCountry(table, '45.207.207.25'), 'US');
+      expect(offlineCountry(table, '2a00:1450:4001::1'), isNull); // IPv6
+      expect(offlineCountry(table, null), isNull);
+      expect(offlineCountry(null, '8.8.8.8'), isNull);
+    });
+  });
+
+  group('ExitGeo.fromOpinions', () {
+    test('sources that agree confirm the country', () {
+      final g = ExitGeo.fromOpinions(['US', 'us', 'US'])!;
+      expect(g.country, 'US');
+      expect(g.disputed, isFalse);
+      expect(g.confirmed, isTrue);
+      expect(g.confirms('US'), isTrue);
+      expect(g.confirms('NL'), isFalse);
+    });
+
+    // The reported case: a Los Angeles server on address space leased from a
+    // Seychelles-registered owner. Two databases say US, the one most websites
+    // use says SC — the user cannot be promised "США".
+    test('sources that disagree make the country disputed', () {
+      final g = ExitGeo.fromOpinions(['US', 'SC', 'US'])!;
+      expect(g.country, 'US', reason: 'the majority');
+      expect(g.disputedWith, 'SC');
+      expect(g.disputed, isTrue);
+      expect(g.confirmed, isFalse);
+      expect(g.confirms('US'), isFalse);
+    });
+
+    test('a tie goes to the source asked first', () {
+      final g = ExitGeo.fromOpinions(['US', 'SC'])!;
+      expect(g.country, 'US');
+      expect(g.disputedWith, 'SC');
+    });
+
+    test('one source alone is an answer, but not a confirmation', () {
+      final g = ExitGeo.fromOpinions(['NL', null, 'XX'])!;
+      expect(g.country, 'NL');
+      expect(g.sources, 1);
+      expect(g.disputed, isFalse);
+      expect(g.confirmed, isFalse, reason: 'no green mark on a single source');
+      expect(g.confirms('NL'), isTrue, reason: 'still usable to pick a node');
+    });
+
+    test('nobody answered → nothing to say', () {
+      expect(ExitGeo.fromOpinions([null, '', 'XX', 'T1', 'NLD']), isNull);
+      expect(ExitGeo.fromOpinions(const []), isNull);
+    });
+
+    test('a probe summary adds up to the same picture', () {
+      final table = GeoIpService.parseBytes(
+        File('assets/geoip/ipv4_country.v2.bin').readAsBytesSync(),
+      );
+      final g = exitGeoFromProbe(
+        {
+          'exit_country': 'US',
+          'exit_country_alt': 'SC',
+          'exit_ip': '45.207.207.25',
+        },
+        table,
+      )!;
+      expect(g.country, 'US');
+      expect(g.disputedWith, 'SC');
+      expect(g.sources, 3);
+      expect(exitGeoFromProbe({'ok': true}, table), isNull);
+      expect(exitGeoFromProbe(null, table), isNull);
     });
   });
 
@@ -87,37 +175,50 @@ void main() {
   });
 
   group('ExitGeoNotifier', () {
-    test('records country codes and ignores "could not tell"', () {
+    test('records observations and ignores "could not tell"', () {
       final c = _container();
       addTearDown(c.dispose);
       final geo = c.read(exitGeoProvider.notifier);
 
-      geo.record('a', 'nl');
+      geo.record('a', _nl);
       geo.record('b', null);
-      geo.record('c', '');
-      geo.record('d', 'XXX');
-      expect(c.read(exitGeoProvider), {'a': 'NL'});
+      expect(c.read(exitGeoProvider), {'a': _nl});
 
       // A later failed lookup must not erase what was established…
       geo.record('a', null);
-      expect(c.read(exitGeoProvider)['a'], 'NL');
+      expect(c.read(exitGeoProvider)['a'], _nl);
       // …but a different answer replaces it.
-      geo.record('a', 'DE');
-      expect(c.read(exitGeoProvider)['a'], 'DE');
+      geo.record('a', const ExitGeo(country: 'DE', sources: 2));
+      expect(c.read(exitGeoProvider)['a']!.country, 'DE');
+    });
+
+    test('a poorer look at the same country does not hide a known dispute', () {
+      final c = _container();
+      addTearDown(c.dispose);
+      final geo = c.read(exitGeoProvider.notifier);
+      const disputed = ExitGeo(country: 'US', disputedWith: 'SC', sources: 3);
+
+      geo.record('a', disputed);
+      // Next time the second source did not answer: one voice, "US".
+      geo.record('a', const ExitGeo(country: 'US'));
+
+      expect(c.read(exitGeoProvider)['a'], disputed);
     });
 
     test('survives a restart and drops entries older than a week', () async {
       final box = _FakeBox();
       final first = _container(box);
-      first.read(exitGeoProvider.notifier).record('a', 'NL');
+      first.read(exitGeoProvider.notifier)
+        ..record('a', _nl)
+        ..record('b', const ExitGeo(country: 'US', disputedWith: 'SC', sources: 3));
       await Future<void>.delayed(const Duration(milliseconds: 2200)); // debounce
       first.dispose();
-      expect((box.m['exitgeo.v1'] as Map)['a']['c'], 'NL');
 
-      box.m['exitgeo.v1'] = <dynamic, dynamic>{
-        ...box.m['exitgeo.v1'] as Map,
+      box.m['exitgeo.v2'] = <dynamic, dynamic>{
+        ...box.m['exitgeo.v2'] as Map,
         'old': {
           'c': 'FR',
+          'n': 2,
           'at': DateTime.now()
               .subtract(const Duration(days: 30))
               .toIso8601String(),
@@ -127,13 +228,16 @@ void main() {
 
       final second = _container(box);
       addTearDown(second.dispose);
-      expect(second.read(exitGeoProvider), {'a': 'NL'});
+      final restored = second.read(exitGeoProvider);
+      expect(restored.keys, unorderedEquals(['a', 'b']));
+      expect(restored['a'], _nl);
+      expect(restored['b']!.disputedWith, 'SC');
     });
   });
 
   group('a chosen country means the exit country', () {
     // Two nodes listed as US; one of them really exits in the Netherlands —
-    // the case from the bug report (an FDCservers box in Amsterdam).
+    // the first case from the bug report (an FDCservers box in Amsterdam).
     final listed = [
       _node('us-real', ping: 80),
       _node('us-fake', ping: 10),
@@ -162,21 +266,23 @@ void main() {
       expect([for (final n in nl) n.id], ['us-fake']);
     });
 
+    NodeProbe good(int ms) =>
+        NodeProbe(verdict: ProbeVerdict.works, bestMs: ms, at: DateTime.now());
+
     test('a working node in the wrong country does not win a scan', () async {
       final c = _container();
       addTearDown(c.dispose);
       final pf = c.read(preflightProvider.notifier);
       final geo = c.read(exitGeoProvider.notifier);
-      NodeProbe good(int ms) =>
-          NodeProbe(verdict: ProbeVerdict.works, bestMs: ms, at: DateTime.now());
 
       // Both answered; the faster one was seen exiting in NL.
       pf.debugPut('us-fake', good(20));
       pf.debugPut('us-real', good(200));
-      geo.record('us-fake', 'NL');
-      geo.record('us-real', 'US');
+      geo.record('us-fake', _nl);
+      geo.record('us-real', _us);
 
-      bool exitsInUs(String id) => c.read(exitGeoProvider)[id] == 'US';
+      bool exitsInUs(String id) =>
+          c.read(exitGeoProvider)[id]?.confirms('US') ?? false;
 
       final found = await pf
           .burstFindGood(['us-fake', 'us-real'], const {}, accept: exitsInUs)
@@ -190,22 +296,43 @@ void main() {
       expect(any, 'us-fake');
     });
 
+    test('a node the sources cannot agree on does not win either', () async {
+      final c = _container();
+      addTearDown(c.dispose);
+      final pf = c.read(preflightProvider.notifier);
+      final geo = c.read(exitGeoProvider.notifier);
+
+      pf.debugPut('us-disputed', good(20));
+      pf.debugPut('us-real', good(200));
+      geo.record(
+        'us-disputed',
+        const ExitGeo(country: 'US', disputedWith: 'SC', sources: 3),
+      );
+      geo.record('us-real', _us);
+
+      final found = await pf
+          .burstFindGood(
+            ['us-disputed', 'us-real'],
+            const {},
+            accept: (id) => c.read(exitGeoProvider)[id]?.confirms('US') ?? false,
+          )
+          .timeout(const Duration(seconds: 1));
+      expect(found, 'us-real');
+    });
+
     test('no node exits in the chosen country → the scan finds nothing',
         () async {
       final c = _container();
       addTearDown(c.dispose);
       final pf = c.read(preflightProvider.notifier);
-      pf.debugPut(
-        'us-fake',
-        NodeProbe(verdict: ProbeVerdict.works, bestMs: 20, at: DateTime.now()),
-      );
-      c.read(exitGeoProvider.notifier).record('us-fake', 'NL');
+      pf.debugPut('us-fake', good(20));
+      c.read(exitGeoProvider.notifier).record('us-fake', _nl);
 
       final found = await pf
           .burstFindGood(
             ['us-fake'],
             const {},
-            accept: (id) => c.read(exitGeoProvider)[id] == 'US',
+            accept: (id) => c.read(exitGeoProvider)[id]?.confirms('US') ?? false,
           )
           .timeout(const Duration(seconds: 1));
       expect(found, isNull);

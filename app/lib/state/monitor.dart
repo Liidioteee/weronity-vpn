@@ -12,6 +12,7 @@ import '../domain/country_names.dart';
 import '../domain/node.dart';
 import 'bundles.dart';
 import 'candidates.dart';
+import 'custom_keys.dart' show geoIpServiceProvider;
 import 'exit_geo.dart';
 import 'preflight.dart';
 import 'providers.dart';
@@ -31,12 +32,14 @@ import 'providers.dart';
 ///
 /// **Connected, and the tunnel is fine:** on connect, after every switch and
 /// then every few minutes it asks, through the tunnel, which country the
-/// traffic actually comes out in ([exitCheckInterval]). The node's listed
-/// country is only a GeoIP guess about its entry address. The answer corrects
-/// the node everywhere ([exitGeoProvider]) and the home screen shows it. If the
-/// user picked a country and the exit is somewhere else, the session moves to a
-/// node *seen* exiting in that country; if there is none it stays put and says
-/// so ([exitNoticeProvider]).
+/// traffic actually comes out in ([exitCheckInterval]) — from several
+/// geolocation sources, because they disagree about leased address space. The
+/// node's listed country is only a GeoIP guess about its entry address. The
+/// answer corrects the node everywhere ([exitGeoProvider]) and the home screen
+/// shows it. If the user picked a country and the exit is somewhere else — or
+/// the sources cannot agree that it is there — the session moves to a node
+/// whose exit in that country is undisputed; if there is none it stays put and
+/// says so ([exitNoticeProvider]).
 ///
 /// **Idle:** keeps the handful of nodes the next connect would use vetted
 /// ([idleCheckScope]) — a few per tick. It deliberately does not walk the whole
@@ -190,14 +193,15 @@ const exitCheckInterval = Duration(minutes: 3);
 /// answer and no replacement was found. `null` = nothing to report.
 final connectionNoticeProvider = StateProvider<String?>((ref) => null);
 
-/// The exit country last *seen* for the running session, with the node it was
-/// seen through. The home screen shows this country (and a "verified" mark)
-/// instead of the node's listed one. `null` until the first check of a session.
+/// What was last *seen* about the running session's exit, with the node it was
+/// seen through. The home screen shows this country — with a "verified" mark
+/// when the sources agree, a warning when they do not — instead of the node's
+/// listed one. `null` until the first check of a session.
 final sessionExitProvider =
-    StateProvider<({String nodeId, String country})?>((ref) => null);
+    StateProvider<({String nodeId, ExitGeo exit})?>((ref) => null);
 
-/// Shown on the home screen while the session exits in a country other than the
-/// one the user picked and no node exiting in the right one was found.
+/// Shown on the home screen while the session's exit is not (or not certainly)
+/// in the country the user picked and no better node was found.
 final exitNoticeProvider = StateProvider<String?>((ref) => null);
 
 void _clearExitState(Ref ref) {
@@ -225,30 +229,55 @@ HttpClient? _tunnelClient(ConnectionEngine controller, Duration timeout) {
   return client;
 }
 
-/// Asks, through the tunnel, which country the session's traffic comes out in.
-/// `null` = could not tell (the lookup failed) — never treated as a mismatch.
-Future<String?> _exitCountry(ConnectionEngine controller, Duration timeout) async {
+/// Fetches a small text body through the tunnel; null on any failure.
+Future<String?> _getThroughTunnel(
+  ConnectionEngine controller,
+  String url,
+  Duration timeout,
+) async {
   final client = _tunnelClient(controller, timeout);
   if (client == null) return null;
   try {
-    final req = await client
-        .getUrl(Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'))
-        .timeout(timeout);
+    final req = await client.getUrl(Uri.parse(url)).timeout(timeout);
     final resp = await req.close().timeout(timeout);
     if (resp.statusCode != 200) {
       await resp.drain<void>();
       return null;
     }
-    final body = await resp
+    return await resp
         .transform(const Utf8Decoder(allowMalformed: true))
         .join()
         .timeout(timeout);
-    return parseTraceCountry(body);
   } on Object {
     return null;
   } finally {
     client.close(force: true);
   }
+}
+
+/// Asks, through the tunnel, where the session's traffic comes out — two
+/// online sources in parallel plus the bundled table for the exit address.
+/// `null` = nobody could tell — never treated as a mismatch.
+Future<ExitGeo?> _observeExit(
+  Ref ref,
+  ConnectionEngine controller,
+  Duration timeout,
+) async {
+  final answers = await Future.wait([
+    _getThroughTunnel(controller, exitTraceUrl, timeout),
+    _getThroughTunnel(controller, exitSecondOpinionUrl, timeout),
+  ]);
+  final trace = answers[0];
+  final second = answers[1];
+  return ExitGeo.fromOpinions([
+    if (trace != null) parseTraceCountry(trace),
+    if (second != null) parseCountryIs(second),
+    if (trace != null)
+      offlineCountry(
+        ref.read(geoIpServiceProvider).valueOrNull,
+        parseTraceIp(trace),
+      ),
+  ]);
 }
 
 /// Checks where the session through [active] really exits, records it, and —
@@ -260,7 +289,7 @@ Future<void> _verifyExit(
   Node active,
   Duration timeout,
 ) async {
-  final seen = await _exitCountry(controller, timeout);
+  final seen = await _observeExit(ref, controller, timeout);
   if (seen == null) return; // could not tell: say nothing, change nothing
   // The session may have ended or moved while we asked.
   if (controller.status != ConnectionStatus.protected ||
@@ -269,22 +298,31 @@ Future<void> _verifyExit(
   }
 
   ref.read(exitGeoProvider.notifier).record(active.id, seen);
-  ref.read(sessionExitProvider.notifier).state =
-      (nodeId: active.id, country: seen);
+  ref.read(sessionExitProvider.notifier).state = (nodeId: active.id, exit: seen);
 
   final exitNotice = ref.read(exitNoticeProvider.notifier);
   final wanted = controller.selection.countryCode;
-  if (wanted == null || wanted == seen) {
+  if (wanted == null || seen.confirms(wanted)) {
     if (exitNotice.state != null) exitNotice.state = null;
     return;
   }
 
   final log = ref.read(logControllerProvider);
-  final seenName = countryNameRu(seen);
   final wantedName = countryNameRu(wanted);
+  // Either the exit is plainly somewhere else, or it is in the right country
+  // by some databases and not by others — to a site using one of the others
+  // the user is not where they asked to be.
+  final String problem;
+  if (seen.country != wanted) {
+    problem = 'выход в интернет — «${countryNameRu(seen.country)}», '
+        'а не «$wantedName»';
+  } else {
+    problem = 'геобазы расходятся: выход в «$wantedName» по одним данным и в '
+        '«${countryNameRu(seen.disputedWith)}» по другим';
+  }
   log.add('warn', 'monitor',
-      'узел ${_name(active)} выходит в интернет в стране «$seenName», а выбрана '
-      '«$wantedName» — ищу узел с выходом в «$wantedName»');
+      'узел ${_name(active)}: $problem — ищу узел с бесспорным выходом в '
+      '«$wantedName»');
 
   final moved = await _relocate(ref, active, wanted);
   if (moved) {
@@ -292,16 +330,18 @@ Future<void> _verifyExit(
     return;
   }
   final why = ref.read(settingsProvider).autoSwitch
-      ? 'узлов с выходом в стране «$wantedName» не найдено'
+      ? 'узлов с бесспорным выходом в «$wantedName» не найдено'
       : 'автопереключение выключено';
   log.add('warn', 'monitor', 'остаюсь на узле ${_name(active)}: $why');
-  exitNotice.state = 'Выход в интернет — «$seenName», а не «$wantedName»: $why.';
+  exitNotice.state =
+      '${problem[0].toUpperCase()}${problem.substring(1)}. '
+      '${why[0].toUpperCase()}${why.substring(1)}.';
 }
 
-/// Moves the session to a node that has been *seen* exiting in [wanted]. Unlike
-/// a failover, the current node works — so only a verified match is worth the
-/// switch; a node whose exit is merely listed as [wanted] is exactly what just
-/// turned out to be wrong.
+/// Moves the session to a node that has been *seen* exiting in [wanted] with no
+/// source disagreeing. Unlike a failover, the current node works — so only a
+/// verified match is worth the switch; a node whose exit is merely listed as
+/// [wanted] is exactly what just turned out to be wrong.
 Future<bool> _relocate(Ref ref, Node active, String wanted) async {
   final settings = ref.read(settingsProvider);
   if (!settings.autoSwitch) return false;
@@ -319,7 +359,8 @@ Future<bool> _relocate(Ref ref, Node active, String wanted) async {
   final ids = [for (final n in scope.take(_failoverScanWidth)) n.id];
   if (ids.isEmpty) return false;
 
-  bool exitsInWanted(String id) => ref.read(exitGeoProvider)[id] == wanted;
+  bool exitsInWanted(String id) =>
+      ref.read(exitGeoProvider)[id]?.confirms(wanted) ?? false;
 
   Node? pick = _firstGood(
     [for (final id in ids) if (exitsInWanted(id)) id],
@@ -343,7 +384,7 @@ Future<bool> _relocate(Ref ref, Node active, String wanted) async {
     return false;
   }
   ref.read(logControllerProvider).add('info', 'monitor',
-      'переключаюсь на ${_name(pick)} — выход в стране «${countryNameRu(wanted)}» подтверждён');
+      'переключаюсь на ${_name(pick)} — выход в «${countryNameRu(wanted)}» подтверждён');
   return controller.switchTo(pick);
 }
 
@@ -473,15 +514,16 @@ Future<bool> _failover(
 const _failoverScanWidth = 48;
 
 /// For a country selection: a node whose check has just shown it exits
-/// somewhere else is not an acceptable pick, however well it works. A node
-/// whose exit could not be determined keeps the benefit of the doubt — the
-/// session re-checks it once connected. Any other selection accepts everything.
+/// somewhere else — or that the geolocation sources cannot agree on — is not an
+/// acceptable pick, however well it works. A node whose exit could not be
+/// determined at all keeps the benefit of the doubt: the session re-checks it
+/// once connected. Any other selection accepts everything.
 bool Function(String id)? _exitAllowedBy(Ref ref, Selection selection) {
   final wanted = selection.countryCode;
   if (wanted == null) return null;
   return (id) {
     final seen = ref.read(exitGeoProvider)[id];
-    return seen == null || seen == wanted;
+    return seen == null || seen.confirms(wanted);
   };
 }
 

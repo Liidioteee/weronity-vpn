@@ -149,7 +149,7 @@ final nodesProvider = Provider<List<Node>>((ref) {
   final listed = ref.watch(_listedNodesProvider);
   final exits = ref.watch(exitGeoProvider);
   if (exits.isEmpty) return listed;
-  return [for (final n in listed) withExitCountry(n, exits[n.id])];
+  return [for (final n in listed) withExitCountry(n, exits[n.id]?.country)];
 });
 
 // --- filtering -----------------------------------------------------------

@@ -58,13 +58,14 @@ class HomeScreen extends ConsumerWidget {
     // what the node was listed with.
     final active = controller.activeNode;
     final sessionExit = ref.watch(sessionExitProvider);
-    final exitVerified = active != null && sessionExit?.nodeId == active.id;
+    final exit = active != null && sessionExit?.nodeId == active.id
+        ? sessionExit!.exit
+        : null;
     final activeCountry = active == null
         ? null
-        : exitVerified
-            ? sessionExit!.country
-            : ref.watch(exitGeoProvider.select((m) => m[active.id])) ??
-                active.countryCode;
+        : exit?.country ??
+            ref.watch(exitGeoProvider.select((m) => m[active.id]?.country)) ??
+            active.countryCode;
     final proMode = ref.watch(settingsProvider.select((s) => s.proMode));
 
     return Scaffold(
@@ -135,7 +136,7 @@ class HomeScreen extends ConsumerWidget {
                   notice: notice,
                   exitNotice: exitNotice,
                   country: activeCountry,
-                  exitVerified: exitVerified,
+                  exit: exit,
                 ),
                 const SizedBox(height: WSpace.xl),
                 FadeSlideIn(
@@ -171,15 +172,15 @@ class _StatusLine extends StatelessWidget {
     this.notice,
     this.exitNotice,
     this.country,
-    this.exitVerified = false,
+    this.exit,
   });
   final ConnectionEngine controller;
 
   /// The country to show for the session (see `HomeScreen.build`).
   final String? country;
 
-  /// True once this session's exit country has actually been observed.
-  final bool exitVerified;
+  /// What was observed about this session's exit, once it has been checked.
+  final ExitGeo? exit;
 
   /// Set while the session exits in a country other than the chosen one — see
   /// `exitNoticeProvider`.
@@ -206,7 +207,7 @@ class _StatusLine extends StatelessWidget {
         (controller.isSwitching ? 'Смена локации…' : s.label);
     final key = ValueKey<String>(
       '$label|${controller.activeNode?.id}|${controller.lastError}|$notice|'
-      '$exitNotice|$country|$exitVerified',
+      '$exitNotice|$country|$exit',
     );
 
     return AnimatedSwitcher(
@@ -244,17 +245,28 @@ class _StatusLine extends StatelessWidget {
                       flagSize: 18,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
-                    if (exitVerified)
+                    // Green only when independent geolocation sources agree;
+                    // a single source is shown without a mark at all.
+                    if (exit?.confirmed ?? false)
                       const Padding(
                         padding: EdgeInsets.only(left: WSpace.xs),
                         child: Tooltip(
-                          message: 'Страна выхода подтверждена проверкой '
-                              'через туннель',
+                          message: 'Страна выхода подтверждена: независимые '
+                              'геобазы сходятся',
                           child: Icon(
                             Icons.verified_rounded,
                             size: 15,
                             color: WColors.protected,
                           ),
+                        ),
+                      )
+                    else if (exit?.disputed ?? false)
+                      const Padding(
+                        padding: EdgeInsets.only(left: WSpace.xs),
+                        child: Icon(
+                          Icons.help_rounded,
+                          size: 15,
+                          color: WColors.connecting,
                         ),
                       ),
                     _ElapsedText(controller: controller),
@@ -275,6 +287,20 @@ class _StatusLine extends StatelessWidget {
                 if (!controller.activeNode!.isHopSecure) ...[
                   const SizedBox(height: WSpace.sm),
                   HopSecurityTag(controller.activeNode!.hopSecurity),
+                ],
+                // The sources disagree and nothing else is being said about
+                // it (no country was picked): still tell the user, plainly.
+                if (exitNotice == null && (exit?.disputed ?? false)) ...[
+                  const SizedBox(height: WSpace.xs),
+                  Text(
+                    'По другим геобазам — '
+                    '${countryNameRu(exit!.disputedWith)}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelSmall
+                        ?.copyWith(color: WColors.connecting),
+                  ),
                 ],
                 if (exitNotice != null) ...[
                   const SizedBox(height: WSpace.sm),

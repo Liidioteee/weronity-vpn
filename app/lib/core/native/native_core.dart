@@ -287,9 +287,10 @@ class NativeCore {
   /// block the UI (it can take a few seconds). Returns the `probeSummary` map,
   /// or null if the core is missing / the call failed.
   ///
-  /// With [exitGeo] the summary also carries `exit_country` — the country the
-  /// node's traffic actually comes out in (asked in parallel with the probes,
-  /// so it costs no extra time).
+  /// With [exitGeo] the summary also says where the node's traffic actually
+  /// comes out: `exit_country`, a second opinion in `exit_country_alt`, and
+  /// the exit address in `exit_ip` (asked in parallel with the probes, so it
+  /// costs no extra time).
   Future<Map<String, dynamic>?> testNode(
     Map<String, dynamic> outbound, {
     List<String>? targets,

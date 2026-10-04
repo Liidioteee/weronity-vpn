@@ -54,12 +54,27 @@ type probeSummary struct {
 	// node exits somewhere else, and registry-based GeoIP mislabels hosting
 	// ranges. Empty = could not tell.
 	ExitCountry string `json:"exit_country,omitempty"`
+
+	// ExitCountryAlt is a second, independent opinion about the same thing.
+	// "Which country is this address in" is each geolocation database's own
+	// guess, and for leased address space they disagree — the caller compares
+	// the two rather than trusting either.
+	ExitCountryAlt string `json:"exit_country_alt,omitempty"`
+
+	// ExitIP is the exit address itself, so the caller can ask its own offline
+	// table for a third opinion.
+	ExitIP string `json:"exit_ip,omitempty"`
 }
 
-// exitGeoURL answers with plain `key=value` lines, one of which is the
-// requester's country (`loc=NL`). Reached through the tunnel, the requester is
-// the node's exit address.
-const exitGeoURL = "https://www.cloudflare.com/cdn-cgi/trace"
+const (
+	// exitGeoURL answers with plain `key=value` lines, among them the
+	// requester's address and country (`ip=…`, `loc=NL`) by Cloudflare's data.
+	// Reached through the tunnel, the requester is the node's exit address.
+	exitGeoURL = "https://www.cloudflare.com/cdn-cgi/trace"
+	// exitGeoAltURL answers `{"ip":"…","country":"NL"}` from MaxMind GeoLite2 —
+	// the database most websites use to decide where a visitor is.
+	exitGeoAltURL = "https://api.country.is/"
+)
 
 var defaultProbeTargets = []string{
 	"https://www.google.com/generate_204",
@@ -123,7 +138,7 @@ func testNodeJSON(reqJSON string) string {
 	}
 
 	hits := make([]probeHit, len(targets))
-	var exitCountry string
+	var exitCountry, exitIP, exitAlt string
 	var wg sync.WaitGroup
 	for i, t := range targets {
 		wg.Add(1)
@@ -133,15 +148,26 @@ func testNodeJSON(reqJSON string) string {
 		}(i, t)
 	}
 	if req.ExitGeo {
-		wg.Add(1)
+		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			exitCountry = fetchExitCountry(dialer, per)
+			if body, ok := getThrough(dialer, exitGeoURL, per); ok {
+				exitCountry, exitIP = parseTraceCountry(body), parseTraceIP(body)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if body, ok := getThrough(dialer, exitGeoAltURL, per); ok {
+				exitAlt = parseCountryIs(body)
+			}
 		}()
 	}
 	wg.Wait()
 
-	sum := probeSummary{BestMs: -1, Hits: hits, ExitCountry: exitCountry}
+	sum := probeSummary{
+		BestMs: -1, Hits: hits,
+		ExitCountry: exitCountry, ExitCountryAlt: exitAlt, ExitIP: exitIP,
+	}
 	for _, h := range hits {
 		if h.OK {
 			sum.OK = true
@@ -202,11 +228,11 @@ func httpProbe(dialer proxy.Dialer, target string, timeout time.Duration) probeH
 	return h
 }
 
-// fetchExitCountry asks exitGeoURL through the proxy and returns the country
-// it reports, or "" on any failure.
-func fetchExitCountry(dialer proxy.Dialer, timeout time.Duration) string {
+// getThrough fetches a small text body through the proxy; ok is false on any
+// failure or a non-200 answer.
+func getThrough(dialer proxy.Dialer, url string, timeout time.Duration) (body string, ok bool) {
 	tr := &http.Transport{DisableKeepAlives: true, TLSHandshakeTimeout: timeout}
-	if cd, ok := dialer.(proxy.ContextDialer); ok {
+	if cd, isCtx := dialer.(proxy.ContextDialer); isCtx {
 		tr.DialContext = cd.DialContext
 	} else {
 		tr.DialContext = func(_ context.Context, network, addr string) (net.Conn, error) {
@@ -214,38 +240,65 @@ func fetchExitCountry(dialer proxy.Dialer, timeout time.Duration) string {
 		}
 	}
 	client := &http.Client{Transport: tr, Timeout: timeout}
-	resp, err := client.Get(exitGeoURL)
+	resp, err := client.Get(url)
 	if err != nil {
-		return ""
+		return "", false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return ""
+		return "", false
 	}
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-	return parseTraceCountry(string(body))
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	return string(raw), true
 }
 
-// parseTraceCountry pulls the `loc=` line out of a /cdn-cgi/trace body. Only a
-// real two-letter country code counts: "XX" (unknown) and "T1" (Tor) do not.
-func parseTraceCountry(body string) string {
-	for _, line := range strings.Split(body, "\n") {
-		value, ok := strings.CutPrefix(strings.TrimSpace(line), "loc=")
-		if !ok {
-			continue
-		}
-		cc := strings.ToUpper(strings.TrimSpace(value))
-		if len(cc) != 2 || cc == "XX" {
+// countryCode normalises a would-be ISO-3166 alpha-2 code. Only a real
+// two-letter code counts: "XX" (unknown) and "T1" (Tor) come back empty.
+func countryCode(s string) string {
+	cc := strings.ToUpper(strings.TrimSpace(s))
+	if len(cc) != 2 || cc == "XX" {
+		return ""
+	}
+	for _, r := range cc {
+		if r < 'A' || r > 'Z' {
 			return ""
 		}
-		for _, r := range cc {
-			if r < 'A' || r > 'Z' {
-				return ""
-			}
+	}
+	return cc
+}
+
+// traceField returns the value of `key=` in a /cdn-cgi/trace body.
+func traceField(body, key string) string {
+	for _, line := range strings.Split(body, "\n") {
+		if value, ok := strings.CutPrefix(strings.TrimSpace(line), key+"="); ok {
+			return strings.TrimSpace(value)
 		}
-		return cc
 	}
 	return ""
+}
+
+// parseTraceCountry pulls the requester's country (`loc=`) out of a trace body.
+func parseTraceCountry(body string) string { return countryCode(traceField(body, "loc")) }
+
+// parseTraceIP pulls the requester's address (`ip=`) out of a trace body; ""
+// unless it really is an IP address.
+func parseTraceIP(body string) string {
+	ip := net.ParseIP(traceField(body, "ip"))
+	if ip == nil {
+		return ""
+	}
+	return ip.String()
+}
+
+// parseCountryIs reads `{"ip":"…","country":"NL"}`.
+func parseCountryIs(body string) string {
+	var answer struct {
+		Country string `json:"country"`
+	}
+	if err := json.Unmarshal([]byte(body), &answer); err != nil {
+		return ""
+	}
+	return countryCode(answer.Country)
 }
 
 func looksLikeHTML(b []byte) bool {

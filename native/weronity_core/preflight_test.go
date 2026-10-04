@@ -35,6 +35,36 @@ func TestParseTraceCountry(t *testing.T) {
 	}
 }
 
+func TestParseTraceIPAndSecondOpinion(t *testing.T) {
+	body := "fl=1\nip=45.207.207.25\ncolo=LAX\nloc=US\n"
+	if got := parseTraceIP(body); got != "45.207.207.25" {
+		t.Errorf("parseTraceIP = %q", got)
+	}
+	if got := parseTraceIP("ip=2a00:1450:4001::1\n"); got != "2a00:1450:4001::1" {
+		t.Errorf("parseTraceIP v6 = %q", got)
+	}
+	for _, junk := range []string{"ip=not-an-ip\n", "loc=US\n", ""} {
+		if got := parseTraceIP(junk); got != "" {
+			t.Errorf("parseTraceIP(%q) = %q, want empty", junk, got)
+		}
+	}
+
+	// The same address, by the database most sites use: the two can disagree.
+	cases := map[string]string{
+		`{"ip":"45.207.207.25","country":"SC"}`: "SC",
+		`{"ip":"1.2.3.4","country":"us"}`:       "US",
+		`{"ip":"1.2.3.4"}`:                      "",
+		`{"country":"XX"}`:                      "",
+		`<html>rate limited</html>`:             "",
+		``:                                      "",
+	}
+	for in, want := range cases {
+		if got := parseCountryIs(in); got != want {
+			t.Errorf("parseCountryIs(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 // An unreachable node cannot tell where it exits: the field stays empty and
 // the rest of the summary is unaffected by asking.
 func TestTestNodeExitGeoIsEmptyWhenUnreachable(t *testing.T) {
@@ -49,8 +79,8 @@ func TestTestNodeExitGeoIsEmptyWhenUnreachable(t *testing.T) {
 	if sum.Err != "" {
 		t.Fatalf("engine should have started fine, got err: %s", sum.Err)
 	}
-	if sum.ExitCountry != "" {
-		t.Errorf("exit_country = %q for an unreachable node", sum.ExitCountry)
+	if sum.ExitCountry != "" || sum.ExitCountryAlt != "" || sum.ExitIP != "" {
+		t.Errorf("exit data for an unreachable node: %+v", sum)
 	}
 	if sum.OK || len(sum.Hits) != 1 {
 		t.Errorf("summary changed by exit_geo: %+v", sum)
