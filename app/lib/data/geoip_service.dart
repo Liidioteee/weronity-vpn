@@ -4,7 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 
 /// Offline IPv4 -> ISO-3166 country lookup, backed by a packed asset built by
-/// `app/tool/build_geoip.py` (source: sapics/ip-location-db, PDDL / CC0-style).
+/// `app/tool/build_geoip.py` (source: DB-IP Lite via sapics/ip-location-db,
+/// CC BY 4.0 — "IP Geolocation by DB-IP").
 ///
 /// Used to give **imported** keys a country (and therefore a flag) — pool nodes
 /// already carry geo from the collector. No network calls for the lookup itself;

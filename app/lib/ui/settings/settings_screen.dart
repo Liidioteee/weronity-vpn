@@ -430,6 +430,13 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: Text('GNU GPL v3.0 · 100% Free & Open Source'),
               ),
               const Divider(),
+              // Attribution required by the database's licence (CC BY 4.0).
+              const ListTile(
+                leading: Icon(Icons.public_rounded),
+                title: Text('Геоданные'),
+                subtitle: Text('IP Geolocation by DB-IP · db-ip.com'),
+              ),
+              const Divider(),
               const ListTile(
                 leading: Icon(Icons.info_outline_rounded),
                 title: Text('Версия'),

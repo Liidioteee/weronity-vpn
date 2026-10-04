@@ -72,6 +72,9 @@ TUIC v5.
 [GNU GPL v3.0](LICENSE). На время разработки единственный источник ключей —
 [`igareck/vpn-configs-for-russia`](https://github.com/igareck/vpn-configs-for-russia).
 
+Страна узла определяется по базе DB-IP Lite (CC BY 4.0):
+[IP Geolocation by DB-IP](https://db-ip.com).
+
 ## Приватность
 
 Zero-Log Policy: приложение не собирает персональные данные. Телеметрия —

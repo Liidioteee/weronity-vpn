@@ -4,9 +4,17 @@
     python scripts/fetch_geoip.py [--dir geoip]
 
 Source: the sapics/ip-location-db project, served from the jsDelivr CDN — no API
-token, MaxMind-compatible record layout, permissive licensing (country data is
-PDDL / CC0-style; ASN data derives from the RouteViews/whois dataset). Attribution
-for the derived pool: "IP geolocation by DB-IP / ip-location-db (sapics)".
+token, MaxMind-compatible record layout.
+
+The country database is **DB-IP Lite** (``dbip-country``): it says where an
+address *is*. The registry-based ``geo-whois-asn-country`` set used before says
+where the block was *registered*, which is wrong for most hosting ranges — a US
+company's servers in Amsterdam came out as "US", and that label is what the
+client shows as the node's country.
+
+Licensing: DB-IP Lite is CC BY 4.0 — attribution is required wherever the data
+or anything derived from it (the pool) is distributed: "IP Geolocation by DB-IP"
+(https://db-ip.com). ASN data derives from the RouteViews/whois dataset.
 """
 
 from __future__ import annotations
@@ -19,7 +27,7 @@ from pathlib import Path
 CDN = "https://cdn.jsdelivr.net/npm/@ip-location-db"
 DATASETS = {
     # local filename : CDN path
-    "dbip-country-lite.mmdb": "geo-whois-asn-country-mmdb/geo-whois-asn-country.mmdb",
+    "dbip-country-lite.mmdb": "dbip-country-mmdb/dbip-country.mmdb",
     "dbip-asn-lite.mmdb": "asn-mmdb/asn.mmdb",
 }
 _UA = "weronity-collector fetch_geoip"
