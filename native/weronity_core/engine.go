@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -62,10 +63,31 @@ func emit(level, tag, message string) {
 }
 
 // platformLog bridges sing-box's logger into emit().
-type platformLog struct{}
+//
+// The platform writer is handed *every* message regardless of the configured
+// log level, coloured for a terminal. Unfiltered, that is a trace line per
+// packet flooding the event buffer and the UI; so we apply the level ourselves
+// and strip the colour codes.
+type platformLog struct {
+	// maxLevel is the most verbose level that is forwarded.
+	maxLevel log.Level
+}
 
-func (platformLog) WriteMessage(level log.Level, message string) {
-	emit(log.FormatLevel(level), "sing-box", message)
+var ansiSeq = regexp.MustCompile("\x1b\\[[0-9;]*m")
+
+func (p platformLog) WriteMessage(level log.Level, message string) {
+	if level > p.maxLevel {
+		return
+	}
+	emit(log.FormatLevel(level), "sing-box", ansiSeq.ReplaceAllString(message, ""))
+}
+
+func newPlatformLog(levelName string) platformLog {
+	level, err := log.ParseLevel(levelName)
+	if err != nil {
+		level = log.LevelInfo
+	}
+	return platformLog{maxLevel: level}
 }
 
 // ---- engine ---------------------------------------------------------
@@ -279,7 +301,7 @@ func startEngine(configJSON string) (err error) {
 		return e
 	}
 	if of, ok := b.LogFactory().(log.ObservableFactory); ok {
-		of.AttachPlatformWriter(platformLog{})
+		of.AttachPlatformWriter(newPlatformLog(sc.logLevel()))
 	}
 	if e = b.Start(); e != nil {
 		if vpn {

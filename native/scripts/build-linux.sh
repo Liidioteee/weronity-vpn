@@ -2,7 +2,7 @@
 # Build libweronity_core.so for Linux (x86_64) and drop it where the Flutter
 # desktop app can load it.
 #
-#   native/scripts/build-linux.sh [debug|release]
+#   native/scripts/build-linux.sh
 #
 # Requires: Go (with CGO) and a native gcc. Must run *on* Linux — cgo does not
 # cross-compile from Windows without a full linux/amd64 toolchain.
@@ -18,7 +18,6 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mode="${1:-debug}"
 src="$here/../weronity_core"
 repo="$here/../.."
 
@@ -45,7 +44,7 @@ mkdir -p "$out_dir"
 # there and why with_clash_api is not.
 SB_TAGS="with_quic,with_utls,with_gvisor"
 
-echo "building libweronity_core.so ($mode, tags=$SB_TAGS) with $(go version)"
+echo "building libweronity_core.so (tags=$SB_TAGS) with $(go version)"
 ( cd "$src" && go build -buildmode=c-shared \
     -tags "$SB_TAGS" \
     -ldflags="-s -w" \

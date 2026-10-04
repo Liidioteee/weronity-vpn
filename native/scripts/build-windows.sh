@@ -2,13 +2,12 @@
 # Build weronity_core.dll for Windows (x86_64) and drop it where the Flutter
 # desktop app can load it.
 #
-#   native/scripts/build-windows.sh [debug|release]
+#   native/scripts/build-windows.sh
 #
 # Requires: Go (with CGO), a mingw-w64 gcc on PATH.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mode="${1:-debug}"
 src="$here/../weronity_core"
 repo="$here/../.."
 
@@ -49,7 +48,7 @@ mkdir -p "$out_dir"
 # smaller binary, smaller attack surface.
 SB_TAGS="with_quic,with_utls,with_gvisor"
 
-echo "building weronity_core.dll ($mode, tags=$SB_TAGS) with $(go version)"
+echo "building weronity_core.dll (tags=$SB_TAGS) with $(go version)"
 ( cd "$src" && go build -buildmode=c-shared \
     -tags "$SB_TAGS" \
     -ldflags="-s -w" \
