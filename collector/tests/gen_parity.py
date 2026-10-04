@@ -43,5 +43,6 @@ def expected() -> list[dict[str, object]]:
 
 if __name__ == "__main__":
     out = FIXTURES / "parity_expected.json"
-    out.write_text(json.dumps(expected(), ensure_ascii=False, indent=1) + "\n", "utf-8")
+    # newline="\n": the fixture must be byte-identical whichever OS regenerates it
+    out.write_text(json.dumps(expected(), ensure_ascii=False, indent=1) + "\n", "utf-8", newline="\n")
     print(f"wrote {out} ({len(expected())} entries)")
