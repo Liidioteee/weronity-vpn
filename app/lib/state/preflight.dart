@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/node.dart';
+import 'custom_keys.dart' show geoIpServiceProvider;
+import 'exit_geo.dart';
 import 'providers.dart';
 
 /// Result of an on-device reachability probe for one node.
@@ -134,6 +136,22 @@ class NodeProbe {
   bool get isGood =>
       verdict == ProbeVerdict.works || verdict == ProbeVerdict.slow;
 
+  /// This probe plus the hits of an [older] one for URLs it did not ask.
+  NodeProbe withOlderHits(List<ProbeHit> older) {
+    final asked = {for (final h in hits) h.url};
+    return NodeProbe(
+      verdict: verdict,
+      bestMs: bestMs,
+      error: error,
+      at: at,
+      hits: [
+        ...hits,
+        for (final h in older)
+          if (!asked.contains(h.url)) h,
+      ],
+    );
+  }
+
   /// A hit against [url] that succeeded, if the probe recorded one.
   ProbeHit? hitFor(String url) {
     for (final h in hits) {
@@ -196,13 +214,20 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
     }
   }
 
+  /// Results older than this are not worth keeping: the pool turns over, and a
+  /// two-day-old verdict says nothing. Without the cut-off the cache only grew.
+  static const _keepFor = Duration(hours: 48);
+
   void _persist() {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(seconds: 2), () {
       try {
+        final cutoff = DateTime.now().subtract(_keepFor);
         ref.read(sessionBoxProvider).put(_boxKey, {
           for (final e in state.entries)
-            if (e.value.verdict.isDone) e.key: e.value.toJson(),
+            if (e.value.verdict.isDone &&
+                (e.value.at?.isAfter(cutoff) ?? false))
+              e.key: e.value.toJson(),
         });
       } on Object catch (e) {
         debugPrint('preflight cache save failed: $e');
@@ -228,14 +253,26 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
 
   Future<void> test(Node node) => testRaw(node.id, node.outbound);
 
+  /// The one URL a *quick* check asks for: plain connectivity.
+  static const quickTarget = 'https://www.google.com/generate_204';
+
   /// The core probe. [outbound] is the sanitised-on-the-Go-side node config.
   /// [timeoutMs] overrides the user's setting — used by the fast burst scan.
+  ///
+  /// [quick] asks only "does this node carry traffic at all" — one target
+  /// instead of the whole per-service list. A full probe is as slow as its
+  /// slowest target, so a node that is fine but cannot reach one service takes
+  /// the entire timeout to report; a scan that wants the *first* working node
+  /// cannot afford that. The per-service hits of an earlier full probe are
+  /// kept, so the auto-bundles do not lose the node.
   Future<void> testRaw(
     String id,
     Map<String, dynamic> outbound, {
     int? timeoutMs,
+    bool quick = false,
   }) async {
-    if (state[id]?.verdict == ProbeVerdict.testing) return;
+    final before = state[id];
+    if (before?.verdict == ProbeVerdict.testing) return;
     state = {...state, id: NodeProbe.testing};
 
     final core = ref.read(nativeCoreProvider);
@@ -244,15 +281,29 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
     try {
       summary = await core.testNode(
         outbound,
-        targets: s.preflightEndpoints,
+        targets: quick ? const [quickTarget] : s.preflightEndpoints,
         timeoutMs: timeoutMs ?? s.checkTimeoutMs,
+        exitGeo: true,
       );
     } on Object catch (e) {
       summary = {'err': '$e'};
     }
-    final result = summary == null
+    // Every check is also a chance to learn where the node really exits.
+    if (summary != null && summary['exit_country'] != null) {
+      ref.read(exitGeoProvider.notifier).record(
+            id,
+            exitGeoFromProbe(
+              summary,
+              ref.read(geoIpServiceProvider).valueOrNull,
+            ),
+          );
+    }
+    var result = summary == null
         ? const NodeProbe(verdict: ProbeVerdict.error, error: 'ядро недоступно')
         : NodeProbe.fromSummary(summary);
+    if (quick && before != null && result.isGood) {
+      result = result.withOlderHits(before.hits);
+    }
     state = {...state, id: result};
     _persist();
   }
@@ -273,44 +324,71 @@ class PreflightNotifier extends Notifier<Map<String, NodeProbe>> {
 
   /// Race through [candidateIds] with high concurrency and a short timeout;
   /// return the id of the **first** node that comes back good, or null if
-  /// [deadline] passes first. Used to find a working node fast when everything
-  /// blocked (most of the RU pool) means a serial scan would take forever.
+  /// nothing answers before [deadline]. Used to find a working node fast when
+  /// everything blocked (most of the RU pool) means a serial scan would take
+  /// forever.
+  ///
+  /// It returns the moment the first good result arrives — the checks still in
+  /// flight finish in the background and only refresh the cache.
+  ///
+  /// [accept] is an extra condition a working node must meet to win (e.g. "it
+  /// exits in the country the user picked"). It is asked *after* the node's
+  /// check, so it can rely on what that check just learned.
   Future<String?> burstFindGood(
     List<String> candidateIds,
     Map<String, Map<String, dynamic>> outboundById, {
     int timeoutMs = 2500,
     Duration deadline = const Duration(seconds: 25),
-  }) async {
+    bool Function(String id)? accept,
+  }) {
+    bool wins(String id) =>
+        (state[id]?.isGood ?? false) && (accept == null || accept(id));
+
     // An already-known fresh-good candidate wins immediately.
     for (final id in candidateIds) {
       final p = state[id];
       if (p != null &&
-          p.isGood &&
+          wins(id) &&
           (p.at?.isAfter(DateTime.now().subtract(const Duration(minutes: 5))) ??
               false)) {
-        return id;
+        return Future<String?>.value(id);
       }
     }
 
     final n = ref.read(settingsProvider).checkConcurrency.clamp(1, 20);
-    final started = DateTime.now();
     final queue = [...candidateIds];
-    String? found;
+    final done = Completer<String?>();
+    final timer = Timer(deadline, () {
+      if (!done.isCompleted) done.complete(null);
+    });
 
     Future<void> worker() async {
-      while (found == null &&
-          queue.isNotEmpty &&
-          DateTime.now().difference(started) < deadline) {
+      while (!done.isCompleted && queue.isNotEmpty) {
         final id = queue.removeAt(0);
         final ob = outboundById[id];
         if (ob == null) continue;
-        await testRaw(id, ob, timeoutMs: timeoutMs);
-        if (found == null && (state[id]?.isGood ?? false)) found = id;
+        await testRaw(id, ob, timeoutMs: timeoutMs, quick: true);
+        if (!done.isCompleted && wins(id)) done.complete(id);
       }
     }
 
-    await Future.wait([for (var i = 0; i < n; i++) worker()]);
-    return found;
+    unawaited(
+      Future.wait([for (var i = 0; i < n; i++) worker()]).whenComplete(() {
+        if (!done.isCompleted) done.complete(null); // every candidate failed
+      }),
+    );
+    return done.future.whenComplete(timer.cancel);
+  }
+
+  /// Records that [nodeId] just failed in real use (the live tunnel through it
+  /// stopped answering). Without this an earlier good probe would still count
+  /// as "known good" and failover could hand the session straight back to it.
+  void markDead(String nodeId) {
+    state = {
+      ...state,
+      nodeId: NodeProbe(verdict: ProbeVerdict.dead, at: DateTime.now()),
+    };
+    _persist();
   }
 
   void clear() {

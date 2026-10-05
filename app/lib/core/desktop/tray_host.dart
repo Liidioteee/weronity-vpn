@@ -34,6 +34,7 @@ class _TrayHostState extends ConsumerState<TrayHost>
     with WindowListener, TrayListener {
   static const _iconPath = 'assets/tray/tray_icon.ico';
   bool _quitting = false;
+  bool _asking = false;
 
   @override
   void initState() {
@@ -89,6 +90,7 @@ class _TrayHostState extends ConsumerState<TrayHost>
   }
 
   Future<void> _askOnClose() async {
+    if (_asking) return; // the dialog is already up — do not stack another
     var remember = false;
     final navCtx = rootNavigatorKey.currentContext;
     if (navCtx == null) {
@@ -96,7 +98,30 @@ class _TrayHostState extends ConsumerState<TrayHost>
       await windowManager.hide();
       return;
     }
-    final choice = await showDialog<WindowCloseAction>(
+    _asking = true;
+    final WindowCloseAction? choice;
+    try {
+      choice = await _showCloseDialog(navCtx, () => remember, (v) => remember = v);
+    } finally {
+      _asking = false;
+    }
+    if (choice == null) return;
+    if (remember) {
+      await ref.read(settingsProvider.notifier).setCloseAction(choice);
+    }
+    if (choice == WindowCloseAction.quit) {
+      await _quit();
+    } else {
+      await windowManager.hide();
+    }
+  }
+
+  Future<WindowCloseAction?> _showCloseDialog(
+    BuildContext navCtx,
+    bool Function() remembered,
+    void Function(bool) setRemembered,
+  ) {
+    return showDialog<WindowCloseAction>(
       context: navCtx,
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
@@ -112,8 +137,8 @@ class _TrayHostState extends ConsumerState<TrayHost>
               ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                value: remember,
-                onChanged: (v) => setLocal(() => remember = v ?? false),
+                value: remembered(),
+                onChanged: (v) => setLocal(() => setRemembered(v ?? false)),
                 title: const Text('Запомнить выбор'),
                 controlAffinity: ListTileControlAffinity.leading,
               ),
@@ -132,15 +157,6 @@ class _TrayHostState extends ConsumerState<TrayHost>
         ),
       ),
     );
-    if (choice == null) return;
-    if (remember) {
-      await ref.read(settingsProvider.notifier).setCloseAction(choice);
-    }
-    if (choice == WindowCloseAction.quit) {
-      await _quit();
-    } else {
-      await windowManager.hide();
-    }
   }
 
   // ---- WindowListener ----------------------------------------------------

@@ -8,15 +8,20 @@ Honours ``GITHUB_TOKEN`` for a higher rate limit.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterable
+from pathlib import PurePosixPath
 from urllib.parse import quote
 
 import httpx
 
 from .base import RawDocument
 
-_TEXT_SUFFIXES = (".txt", ".yaml", ".yml", ".json", ".conf", ".list", ".ini", "")
+log = logging.getLogger(__name__)
+
+# "" = a file with no extension at all (subscription blobs are often named so).
+_TEXT_SUFFIXES = frozenset({".txt", ".yaml", ".yml", ".json", ".conf", ".list", ".ini", ""})
 _SKIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".pdf", ".zip", ".gz")
 _MAX_BYTES = 3_000_000
 
@@ -48,7 +53,10 @@ class GitHubRepoSource:
         url = f"https://api.github.com/repos/{self.repo}/git/trees/{self.ref}?recursive=1"
         resp = client.get(url, headers=self._headers())
         resp.raise_for_status()
-        tree = resp.json().get("tree", [])
+        body = resp.json()
+        if body.get("truncated"):
+            log.warning("%s: tree listing is truncated — some files were not seen", self.name)
+        tree = body.get("tree", [])
         paths: list[str] = []
         for entry in tree:
             if entry.get("type") != "blob":
@@ -59,7 +67,7 @@ class GitHubRepoSource:
                 continue
             if entry.get("size", 0) > _MAX_BYTES:
                 continue
-            if low.endswith(_TEXT_SUFFIXES) or "base64" in low:
+            if PurePosixPath(low).suffix in _TEXT_SUFFIXES or "base64" in low:
                 paths.append(path)
         return paths
 

@@ -25,6 +25,7 @@ class CustomKeysData {
     this.subs = const [],
     this.nodes = const [],
     this.bundles = const [],
+    this.storageError,
   });
 
   /// Individually added keys (paste / QR).
@@ -39,6 +40,10 @@ class CustomKeysData {
   /// User-made node collections (ТЗ: «свои подборки»).
   final List<KeyBundle> bundles;
 
+  /// Set when the last write to the OS secure store failed: what is on screen
+  /// will not survive a restart, and the user has to know.
+  final String? storageError;
+
   bool get isEmpty => keys.isEmpty && subs.isEmpty;
 
   CustomKeysData copyWith({
@@ -52,6 +57,7 @@ class CustomKeysData {
         subs: subs ?? this.subs,
         nodes: nodes ?? this.nodes,
         bundles: bundles ?? this.bundles,
+        storageError: storageError,
       );
 }
 
@@ -88,6 +94,31 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
   // User bundles — kept as a field so _assemble() (called from several places)
   // doesn't need a wider signature.
   List<KeyBundle> _bundles = const [];
+
+  String? _storageError;
+
+  /// Every mutation is read-state → await → write-state. Run them one at a
+  /// time, or two that overlap (a paste while a subscription is downloading)
+  /// write back a stale copy and silently undo each other.
+  Future<void> _tail = Future<void>.value();
+
+  Future<T> _serial<T>(Future<T> Function() body) {
+    final run = _tail.then((_) => body());
+    _tail = run.then<void>((_) {}, onError: (_) {});
+    return run;
+  }
+
+  /// Runs a write to the secure store and remembers whether it worked.
+  Future<void> _store(Future<void> Function() write) async {
+    try {
+      await write();
+      _storageError = null;
+    } on Object catch (e) {
+      debugPrint('custom keys: storage write failed (${e.runtimeType})');
+      _storageError = 'Системное хранилище недоступно — ключи и подписки '
+          'не сохранятся после перезапуска приложения.';
+    }
+  }
 
   @override
   Future<CustomKeysData> build() async {
@@ -136,58 +167,62 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
       subs: subs,
       nodes: nodes.values.toList(),
       bundles: _bundles,
+      storageError: _storageError,
     );
   }
 
   // ---- bundles --------------------------------------------------------
 
   Future<void> _persistBundles() async {
-    await _repo.saveBundles(_bundles);
+    await _store(() => _repo.saveBundles(_bundles));
     final cur = state.valueOrNull;
-    if (cur != null) state = AsyncData(cur.copyWith(bundles: _bundles));
+    if (cur != null) state = AsyncData(_assemble(cur.keys, cur.subs));
   }
 
   static String _bundleId() =>
       'b${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
 
   /// Create a bundle from [nodeIds]; returns its id (empty if nothing to add).
-  Future<String> createBundle(String name, Iterable<String> nodeIds) async {
+  Future<String> createBundle(String name, Iterable<String> nodeIds) {
     final ids = nodeIds.where((e) => e.isNotEmpty).toSet().toList();
-    if (ids.isEmpty) return '';
-    final b = KeyBundle(
-      id: _bundleId(),
-      name: name.trim().isEmpty ? 'Подборка' : name.trim(),
-      nodeIds: ids,
-      createdAt: DateTime.now(),
-    );
-    _bundles = [..._bundles, b];
-    await _persistBundles();
-    return b.id;
+    if (ids.isEmpty) return Future<String>.value('');
+    return _serial(() async {
+      final b = KeyBundle(
+        id: _bundleId(),
+        name: name.trim().isEmpty ? 'Подборка' : name.trim(),
+        nodeIds: ids,
+        createdAt: DateTime.now(),
+      );
+      _bundles = [..._bundles, b];
+      await _persistBundles();
+      return b.id;
+    });
   }
 
-  Future<void> renameBundle(String id, String name) async {
-    _bundles = [
-      for (final b in _bundles)
-        if (b.id == id) b.copyWith(name: name.trim()) else b,
-    ];
-    await _persistBundles();
-  }
+  Future<void> renameBundle(String id, String name) => _serial(() async {
+        _bundles = [
+          for (final b in _bundles)
+            if (b.id == id) b.copyWith(name: name.trim()) else b,
+        ];
+        await _persistBundles();
+      });
 
-  Future<void> addToBundle(String id, Iterable<String> nodeIds) async {
-    _bundles = [
-      for (final b in _bundles)
-        if (b.id == id)
-          b.copyWith(nodeIds: {...b.nodeIds, ...nodeIds}.toList())
-        else
-          b,
-    ];
-    await _persistBundles();
-  }
+  Future<void> addToBundle(String id, Iterable<String> nodeIds) =>
+      _serial(() async {
+        _bundles = [
+          for (final b in _bundles)
+            if (b.id == id)
+              b.copyWith(nodeIds: {...b.nodeIds, ...nodeIds}.toList())
+            else
+              b,
+        ];
+        await _persistBundles();
+      });
 
-  Future<void> removeBundle(String id) async {
-    _bundles = _bundles.where((b) => b.id != id).toList();
-    await _persistBundles();
-  }
+  Future<void> removeBundle(String id) => _serial(() async {
+        _bundles = _bundles.where((b) => b.id != id).toList();
+        await _persistBundles();
+      });
 
   /// Resolve a country for every not-yet-known host in [data], then re-emit
   /// state so the flags appear. Coalesces overlapping calls (newest [data]
@@ -231,15 +266,19 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
   }
 
   Future<void> _persistAndRefresh(List<CustomKey> keys, List<Subscription> subs) async {
-    await _repo.saveKeys(keys);
-    await _repo.saveSubs(subs);
+    await _store(() async {
+      await _repo.saveKeys(keys);
+      await _repo.saveSubs(subs);
+    });
     final data = _assemble(keys, subs);
     state = AsyncData(data);
     unawaited(_resolveGeo(data));
   }
 
   /// Add every proxy URI found in [text] (a single URI, a list, or base64).
-  Future<AddResult> addFromText(String text) async {
+  Future<AddResult> addFromText(String text) => _serial(() => _addFromText(text));
+
+  Future<AddResult> _addFromText(String text) async {
     final current = state.valueOrNull ?? const CustomKeysData();
     final existingRaw = current.keys.map((k) => k.rawUri.trim()).toSet();
     final existingIds = current.nodes.map((n) => n.id).toSet();
@@ -278,20 +317,22 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
     return AddResult(addedIds.length, dupes, failed, addedNodeIds: addedIds);
   }
 
-  Future<void> removeKey(String rawUri) async {
-    final current = state.valueOrNull ?? const CustomKeysData();
-    final keys = current.keys.where((k) => k.rawUri != rawUri).toList();
-    await _persistAndRefresh(keys, current.subs);
-  }
+  Future<void> removeKey(String rawUri) => _serial(() async {
+        final current = state.valueOrNull ?? const CustomKeysData();
+        final keys = current.keys.where((k) => k.rawUri != rawUri).toList();
+        await _persistAndRefresh(keys, current.subs);
+      });
 
   /// Remove several keys in one persist (bulk delete from the manager).
   Future<void> removeKeys(Set<String> rawUris) async {
     if (rawUris.isEmpty) return;
-    final current = state.valueOrNull ?? const CustomKeysData();
-    final keys =
-        current.keys.where((k) => !rawUris.contains(k.rawUri)).toList();
-    if (keys.length == current.keys.length) return;
-    await _persistAndRefresh(keys, current.subs);
+    await _serial(() async {
+      final current = state.valueOrNull ?? const CustomKeysData();
+      final keys =
+          current.keys.where((k) => !rawUris.contains(k.rawUri)).toList();
+      if (keys.length == current.keys.length) return;
+      await _persistAndRefresh(keys, current.subs);
+    });
   }
 
   /// Add a subscription URL and fetch it once.
@@ -300,22 +341,26 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
     if (!u.startsWith('http://') && !u.startsWith('https://')) {
       return 'Ссылка должна начинаться с http:// или https://';
     }
-    final current = state.valueOrNull ?? const CustomKeysData();
-    if (current.subs.any((s) => s.url == u)) return 'Такая подписка уже добавлена';
-
-    final sub = Subscription(url: u, addedAt: DateTime.now());
-    final subs = [...current.subs, sub];
-    await _persistAndRefresh(current.keys, subs);
+    final error = await _serial<String?>(() async {
+      final current = state.valueOrNull ?? const CustomKeysData();
+      if (current.subs.any((s) => s.url == u)) {
+        return 'Такая подписка уже добавлена';
+      }
+      final sub = Subscription(url: u, addedAt: DateTime.now());
+      await _persistAndRefresh(current.keys, [...current.subs, sub]);
+      return null;
+    });
+    if (error != null) return error;
     await refreshSubscription(u);
     return null;
   }
 
-  Future<void> removeSubscription(String url) async {
-    final current = state.valueOrNull ?? const CustomKeysData();
-    _subNodes.remove(url);
-    final subs = current.subs.where((s) => s.url != url).toList();
-    await _persistAndRefresh(current.keys, subs);
-  }
+  Future<void> removeSubscription(String url) => _serial(() async {
+        final current = state.valueOrNull ?? const CustomKeysData();
+        _subNodes.remove(url);
+        final subs = current.subs.where((s) => s.url != url).toList();
+        await _persistAndRefresh(current.keys, subs);
+      });
 
   Future<void> refreshAllSubscriptions() async {
     final subs = state.valueOrNull?.subs ?? const <Subscription>[];
@@ -324,33 +369,50 @@ class CustomKeysNotifier extends AsyncNotifier<CustomKeysData> {
     }
   }
 
+  /// A subscription body larger than this is not a subscription.
+  static const _maxSubscriptionBytes = 8 * 1024 * 1024;
+
   Future<void> refreshSubscription(String url) async {
-    final current = state.valueOrNull ?? const CustomKeysData();
-    Subscription updated;
+    // The download (up to 20 s) happens outside the mutation queue; only
+    // applying its result is serialised.
+    List<Node>? nodes;
     try {
       final res = await _client.get(Uri.parse(url)).timeout(const Duration(seconds: 20));
       if (res.statusCode != 200) throw http.ClientException('HTTP ${res.statusCode}');
-      final nodes = parseSubscription(
+      if (res.bodyBytes.length > _maxSubscriptionBytes) {
+        throw const FormatException('subscription body too large');
+      }
+      nodes = parseSubscription(
         utf8.decode(res.bodyBytes),
         source: 'subscription:$url',
       );
-      _subNodes[url] = nodes;
-      updated = (current.subs.firstWhere((s) => s.url == url,
-              orElse: () => Subscription(url: url, addedAt: DateTime.now())))
-          .copyWith(lastFetched: DateTime.now(), nodeCount: nodes.length);
     } catch (e) {
-      debugPrint('subscription refresh failed ($url): $e');
-      updated = (current.subs.firstWhere((s) => s.url == url,
-              orElse: () => Subscription(url: url, addedAt: DateTime.now())))
-          .copyWith(error: 'Не удалось загрузить');
+      // No URL in the message — subscription links usually carry a token.
+      debugPrint('subscription refresh failed: ${e.runtimeType}');
     }
-    final subs = [
-      for (final s in current.subs) if (s.url == url) updated else s,
-    ];
-    final data = _assemble(current.keys, subs);
-    state = AsyncData(data);
-    await _repo.saveSubs(subs);
-    unawaited(_resolveGeo(data));
+    if (_disposed) return;
+
+    await _serial(() async {
+      // Re-read the state: keys and subscriptions may have changed while the
+      // download was in flight (and this one may have been removed).
+      final current = state.valueOrNull ?? const CustomKeysData();
+      if (!current.subs.any((s) => s.url == url)) return;
+      final fetched = nodes;
+      if (fetched != null) _subNodes[url] = fetched;
+      final subs = [
+        for (final s in current.subs)
+          if (s.url != url)
+            s
+          else if (fetched != null)
+            s.copyWith(lastFetched: DateTime.now(), nodeCount: fetched.length)
+          else
+            s.copyWith(error: 'Не удалось загрузить'),
+      ];
+      await _store(() => _repo.saveSubs(subs));
+      final data = _assemble(current.keys, subs);
+      state = AsyncData(data);
+      unawaited(_resolveGeo(data));
+    });
   }
 
   String? _maybeBase64(String text) {

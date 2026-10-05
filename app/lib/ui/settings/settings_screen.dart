@@ -32,6 +32,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
+    final sessionActive =
+        ref.watch(connectionControllerProvider.select((c) => c.isActive));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Настройки')),
@@ -90,6 +92,19 @@ class SettingsScreen extends ConsumerWidget {
                         }
                       },
                     ),
+                    if (sessionActive)
+                      Padding(
+                        padding: const EdgeInsets.only(top: WSpace.sm),
+                        child: Text(
+                          'Подключение уже установлено — новый режим '
+                          'применится при следующем подключении.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ),
                     if (s.connectionMode == ConnectionMode.vpn)
                       Padding(
                         padding: const EdgeInsets.only(top: WSpace.sm),
@@ -105,6 +120,18 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              if (s.connectionMode == ConnectionMode.vpn) ...[
+                const Divider(),
+                SwitchListTile(
+                  title: LabeledHint('Строгая маршрутизация',
+                      hint: hintRecord('strict_route')),
+                  subtitle: const Text(
+                      'Закрывает обходные пути мимо туннеля. Если после '
+                      'включения пропадёт интернет — выключите обратно.'),
+                  value: s.strictRoute,
+                  onChanged: notifier.setStrictRoute,
+                ),
+              ],
               const Divider(),
               ListTile(
                 enabled: s.connectionMode == ConnectionMode.proxy,
@@ -209,8 +236,8 @@ class SettingsScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(
                     WSpace.lg, WSpace.lg, WSpace.lg, 0),
                 child: Text(
-                  'Приложение постоянно и мягко проверяет узлы в фоне — '
-                  'результаты и автоподборки не сбрасываются.',
+                  'В фоне проверяются живость подключения и узлы выбранной '
+                  'локации. Весь пул — кнопкой «Проверить видимые» в Pro.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -224,8 +251,8 @@ class SettingsScreen extends ConsumerWidget {
               SwitchListTile(
                 title: const Text('Автопереключение при обрыве'),
                 subtitle: const Text(
-                    'Если активный узел перестал отвечать — перейти на лучший '
-                    'живой (та же страна в приоритете)'),
+                    'Если активный узел перестал отвечать — перейти на '
+                    'проверенный узел в пределах выбранной локации'),
                 value: s.autoSwitch,
                 onChanged: notifier.setAutoSwitch,
               ),
@@ -263,20 +290,45 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(WSpace.lg, WSpace.lg, WSpace.lg, WSpace.sm),
-                child: LabeledHint(
-                  'Режим маршрутизации',
-                  hint: hintRecord('routing_mode'),
-                  style: Theme.of(context).textTheme.bodyLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: LabeledHint(
+                            'Режим маршрутизации',
+                            hint: hintRecord('routing_mode'),
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ),
+                        const SizedBox(width: WSpace.sm),
+                        const _SoonTag(),
+                      ],
+                    ),
+                    const SizedBox(height: WSpace.xs),
+                    Text(
+                      'Пока работает только глобальный режим: весь трафик '
+                      'идёт через туннель, включая российские сайты и банки.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
                 ),
               ),
+              // Not wired to the engine yet (Phase 4): shown, disabled, with
+              // the mode that is actually in effect selected.
               RadioGroup<RoutingMode>(
-                groupValue: s.routingMode,
-                onChanged: (v) => v == null ? null : notifier.setRoutingMode(v),
+                groupValue: RoutingMode.global,
+                onChanged: (_) {},
                 child: Column(
                   children: [
                     for (final mode in RoutingMode.values)
                       RadioListTile<RoutingMode>(
                         value: mode,
+                        enabled: false,
                         title: Text(mode.label),
                         subtitle: Text(
                           switch (mode) {
@@ -296,11 +348,13 @@ class SettingsScreen extends ConsumerWidget {
           _Group(
             title: 'Приватность и сеть',
             children: [
-              _SwitchRow(
+              // Not wired to the engine yet (Phase 4).
+              const _SwitchRow(
                 labelKey: 'adblock',
                 label: 'Блокировка рекламы',
-                value: s.adBlock,
-                onChanged: notifier.setAdBlock,
+                value: false,
+                onChanged: null,
+                soon: true,
               ),
               const Divider(),
               _SwitchRow(
@@ -359,7 +413,7 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: Text(
                       ok
                           ? '${core.version()}'
-                          : 'не подключено — используется заглушка (Фаза 3)',
+                          : 'не загружено — подключение недоступно',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     trailing: ok
@@ -376,10 +430,17 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: Text('GNU GPL v3.0 · 100% Free & Open Source'),
               ),
               const Divider(),
+              // Attribution required by the database's licence (CC BY 4.0).
+              const ListTile(
+                leading: Icon(Icons.public_rounded),
+                title: Text('Геоданные'),
+                subtitle: Text('IP Geolocation by DB-IP · db-ip.com'),
+              ),
+              const Divider(),
               const ListTile(
                 leading: Icon(Icons.info_outline_rounded),
                 title: Text('Версия'),
-                subtitle: Text('0.1.0 (Фаза 2 — интерфейс, ядро в разработке)'),
+                subtitle: Text('0.1.0 (Фаза 3 — ядро sing-box)'),
               ),
             ],
           ),
@@ -589,9 +650,17 @@ class _Group extends StatelessWidget {
                   ),
             ),
           ),
-          SectionCard(
-            padding: EdgeInsets.zero,
-            child: Column(children: children),
+          // Full width always: a group whose content is narrow (the theme
+          // picker) must not shrink its card to fit.
+          SizedBox(
+            width: double.infinity,
+            child: SectionCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
+            ),
           ),
         ],
       ),
@@ -605,19 +674,42 @@ class _SwitchRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.soon = false,
   });
 
   final String labelKey;
   final String label;
   final bool value;
-  final ValueChanged<bool> onChanged;
+
+  /// `null` disables the switch.
+  final ValueChanged<bool>? onChanged;
+
+  /// Marks a setting that is designed but not wired to the engine yet.
+  final bool soon;
 
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
       value: value,
       onChanged: onChanged,
-      title: LabeledHint(label, hint: hintRecord(labelKey)),
+      title: Row(
+        children: [
+          Flexible(child: LabeledHint(label, hint: hintRecord(labelKey))),
+          if (soon) ...[
+            const SizedBox(width: WSpace.sm),
+            const _SoonTag(),
+          ],
+        ],
+      ),
     );
   }
+}
+
+/// "Скоро" pill for settings that exist in the design but do nothing yet.
+class _SoonTag extends StatelessWidget {
+  const _SoonTag();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Tag('Скоро', color: WColors.violetBright);
 }

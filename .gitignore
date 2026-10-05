@@ -66,6 +66,9 @@ native/**/*.dll
 native/**/*.dylib
 native/**/*.a
 native/**/*.h.bak
+# `go test`/`go vet` with cgo leave a linked test binary behind
+native/**/*.exe
+native/build/
 
 # Local diagnostic harness + scraped keys used to reproduce net bugs —
 # never commit third-party keys. The harness self-skips without WRN_PROBE=1.

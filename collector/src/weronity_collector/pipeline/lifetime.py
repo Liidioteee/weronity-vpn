@@ -7,14 +7,22 @@ State lives in ``state/seen.json`` (committed to the ``pool-data`` branch by CI)
       "runs_total": 128,
       "window": 336,                         # hours the stability window spans
       "nodes": {
-        "<stable_id>": {"first_seen": "...Z", "last_seen": "...Z", "seen_runs": 41}
+        "<stable_id>": {"first_seen": "...Z", "last_seen": "...Z", "seen_runs": 41,
+                        "first_run": 88}
       }
     }
+
+``first_run`` is the value ``runs_total`` had when the node first appeared, so
+``stability`` can be "share of the runs *since it appeared* in which it was
+alive" — not a share of every run the collector has ever made, which would
+sink towards zero for any node younger than the state file.
 """
 
 from __future__ import annotations
 
 import json
+import logging
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -25,6 +33,8 @@ from ..models import Lifetime
 FRESH_MAX_H = 24
 SHORT_MAX_H = 72  # > 72h → long_lived (ТЗ: «более 3 дней»)
 DEFAULT_WINDOW_H = 24 * 14
+
+log = logging.getLogger(__name__)
 
 
 def classify_age(age_hours: float) -> str:
@@ -51,7 +61,15 @@ class SeenState:
         p = Path(path)
         if not p.is_file():
             return cls()
-        raw = json.loads(p.read_text("utf-8"))
+        try:
+            raw = json.loads(p.read_text("utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("top level is not an object")
+        except (OSError, ValueError) as exc:
+            # A corrupt state file would otherwise fail every run from now on.
+            # Losing the observation history is the lesser evil.
+            log.error("seen state %s is unreadable (%s) — starting fresh", p, exc)
+            return cls()
         return cls(
             runs_total=int(raw.get("runs_total", 0)),
             window_h=int(raw.get("window", DEFAULT_WINDOW_H)),
@@ -61,7 +79,8 @@ class SeenState:
     def save(self, path: str | Path) -> None:
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(
+        tmp = p.with_name(p.name + ".tmp")
+        tmp.write_text(
             json.dumps(
                 {"runs_total": self.runs_total, "window": self.window_h, "nodes": self.nodes},
                 indent=1,
@@ -69,6 +88,7 @@ class SeenState:
             ),
             "utf-8",
         )
+        os.replace(tmp, p)  # atomic: a killed run never leaves a half-written file
 
     # -- update ---------------------------------------------------------------
     def observe(self, present_ids: set[str], now: datetime | None = None) -> None:
@@ -79,7 +99,12 @@ class SeenState:
         for sid in present_ids:
             entry = self.nodes.get(sid)
             if entry is None:
-                self.nodes[sid] = {"first_seen": stamp, "last_seen": stamp, "seen_runs": 1}
+                self.nodes[sid] = {
+                    "first_seen": stamp,
+                    "last_seen": stamp,
+                    "seen_runs": 1,
+                    "first_run": self.runs_total,
+                }
             else:
                 entry["last_seen"] = stamp
                 entry["seen_runs"] = int(entry.get("seen_runs", 0)) + 1
@@ -103,7 +128,11 @@ class SeenState:
         last = _parse(str(entry["last_seen"]))
         age_h = max(0, int((now - first).total_seconds() // 3600))
         seen_runs = int(entry.get("seen_runs", 1))
-        stability = round(seen_runs / self.runs_total, 3) if self.runs_total else 0.0
+        # Entries written before `first_run` existed: assume the node was present
+        # in every run since it appeared (it starts at 1.0 and decays from there).
+        first_run = int(entry.get("first_run", self.runs_total - seen_runs + 1))
+        runs_since = max(1, self.runs_total - max(1, first_run) + 1)
+        stability = round(seen_runs / runs_since, 3)
         return Lifetime.model_validate(
             {
                 "first_seen": _fmt(first),

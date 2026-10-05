@@ -198,6 +198,7 @@ class NodeTags extends StatelessWidget {
         Tag(node.protocol.toUpperCase()),
         Tag(node.classification.security.label,
             color: securityColor(node.classification.security)),
+        if (!node.isHopSecure) HopSecurityTag(node.hopSecurity),
         if (!compact) Tag(node.transport),
         Tag(node.lifetime.klass.label, color: lifetimeColor(node.lifetime.klass)),
         if (node.classification.udp) const Tag('UDP'),
@@ -209,6 +210,29 @@ class NodeTags extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Warning pill for a node whose hop is not properly encrypted. Renders
+/// nothing for [HopSecurity.encrypted].
+class HopSecurityTag extends StatelessWidget {
+  const HopSecurityTag(this.security, {super.key});
+
+  final HopSecurity security;
+
+  @override
+  Widget build(BuildContext context) => switch (security) {
+        HopSecurity.encrypted => const SizedBox.shrink(),
+        HopSecurity.unverified => Tag(
+            security.label,
+            color: WColors.connecting,
+            icon: Icons.gpp_maybe_rounded,
+          ),
+        HopSecurity.plaintext => Tag(
+            security.label,
+            color: WColors.danger,
+            icon: Icons.lock_open_rounded,
+          ),
+      };
 }
 
 class EmptyState extends StatelessWidget {

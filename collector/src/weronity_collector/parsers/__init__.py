@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from ..models import ParsedNode
-from . import hysteria2, shadowsocks, shadowtls, trojan, tuic, vless, vmess
+from . import hysteria2, shadowsocks, trojan, tuic, vless, vmess
 from .common import ParseError
 
-_MODULES = (vless, vmess, trojan, hysteria2, shadowsocks, tuic, shadowtls)
+_MODULES = (vless, vmess, trojan, hysteria2, shadowsocks, tuic)
 
 REGISTRY: dict[str, Callable[[str], ParsedNode]] = {
     scheme: mod.parse for mod in _MODULES for scheme in mod.SCHEMES
@@ -32,7 +32,10 @@ def parse_uri(uri: str) -> ParsedNode:
     fn = REGISTRY.get(scheme)
     if fn is None:
         raise ParseError(f"unsupported scheme {scheme!r}")
-    return fn(uri.strip())
+    node = fn(uri.strip())
+    if not 1 <= node.endpoint.port <= 65535:
+        raise ParseError(f"port {node.endpoint.port} out of range")
+    return node
 
 
 def iter_uris(text: str) -> list[str]:

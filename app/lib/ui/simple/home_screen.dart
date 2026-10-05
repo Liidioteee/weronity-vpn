@@ -9,6 +9,8 @@ import '../../core/singbox_bridge.dart';
 import '../../data/pool_repository.dart';
 import '../../domain/country_names.dart';
 import '../../state/bundles.dart';
+import '../../state/exit_geo.dart';
+import '../../state/monitor.dart';
 import '../../state/providers.dart';
 import '../common/flag.dart';
 import '../common/format.dart';
@@ -21,8 +23,22 @@ class HomeScreen extends ConsumerWidget {
 
   Future<void> _toggle(WidgetRef ref) async {
     final controller = ref.read(connectionControllerProvider);
-    final resolve = ref.read(resolveSelectionProvider);
-    await controller.toggle(resolve);
+    if (controller.isActive) {
+      await controller.disconnect();
+      return;
+    }
+
+    var resolve = ref.read(resolveSelectionProvider);
+    // The plain ranking goes by the collector's ping, which does not mean the
+    // node works from here. Find one that actually answers before we connect
+    // (and prefer the node that worked last time, if the setting is on).
+    if (controller.selection.node == null) {
+      final picked =
+          await ref.read(connectPickProvider)(controller.selection);
+      if (picked != null) resolve = (_) => picked;
+    }
+
+    await controller.connect(resolve);
     final active = controller.activeNode;
     if (active != null && controller.status == ConnectionStatus.protected) {
       await ref.read(settingsProvider.notifier).rememberLastGoodNode(active.id);
@@ -32,7 +48,24 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.watch(connectionControllerProvider);
+    final phase = ref.watch(connectPhaseProvider);
+    final notice = ref.watch(connectionNoticeProvider);
+    final exitNotice = ref.watch(exitNoticeProvider);
     final poolAsync = ref.watch(poolProvider);
+
+    // Which country to show for the running session: the one its exit was just
+    // *seen* in, else the node's country as corrected by earlier checks, else
+    // what the node was listed with.
+    final active = controller.activeNode;
+    final sessionExit = ref.watch(sessionExitProvider);
+    final exit = active != null && sessionExit?.nodeId == active.id
+        ? sessionExit!.exit
+        : null;
+    final activeCountry = active == null
+        ? null
+        : exit?.country ??
+            ref.watch(exitGeoProvider.select((m) => m[active.id]?.country)) ??
+            active.countryCode;
     final proMode = ref.watch(settingsProvider.select((s) => s.proMode));
 
     return Scaffold(
@@ -73,17 +106,38 @@ class HomeScreen extends ConsumerWidget {
                 WSpace.xxl,
               ),
               children: [
+                // Debug builds without the native core run the demo engine:
+                // say so, loudly — nothing is tunnelled.
+                if (controller is ConnectionController)
+                  const Center(
+                    child: Tag(
+                      'Демо-режим · ядро не загружено, туннеля нет',
+                      color: WColors.danger,
+                      icon: Icons.science_rounded,
+                    ),
+                  ),
                 const SizedBox(height: WSpace.xl),
                 Center(
                   child: PowerButton(
-                    status: controller.status,
-                    flagCode: controller.activeNode?.countryCode,
+                    status: phase == null
+                        ? controller.status
+                        : ConnectionStatus.connecting,
+                    flagCode: activeCountry,
                     switching: controller.isSwitching,
-                    onTap: () => _toggle(ref),
+                    // Ignore taps while the pre-connect scan runs — a second
+                    // press would start a second scan.
+                    onTap: () => phase == null ? _toggle(ref) : null,
                   ),
                 ),
                 const SizedBox(height: WSpace.xl),
-                _StatusLine(controller: controller),
+                _StatusLine(
+                  controller: controller,
+                  phase: phase,
+                  notice: notice,
+                  exitNotice: exitNotice,
+                  country: activeCountry,
+                  exit: exit,
+                ),
                 const SizedBox(height: WSpace.xl),
                 FadeSlideIn(
                   child: _SelectionCard(controller: controller),
@@ -112,12 +166,36 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.controller});
+  const _StatusLine({
+    required this.controller,
+    this.phase,
+    this.notice,
+    this.exitNotice,
+    this.country,
+    this.exit,
+  });
   final ConnectionEngine controller;
+
+  /// The country to show for the session (see `HomeScreen.build`).
+  final String? country;
+
+  /// What was observed about this session's exit, once it has been checked.
+  final ExitGeo? exit;
+
+  /// Set while the session exits in a country other than the chosen one — see
+  /// `exitNoticeProvider`.
+  final String? exitNotice;
+
+  /// Set while a pre-connect scan is running — see `connectPhaseProvider`.
+  final String? phase;
+
+  /// The monitor's warning about a session that is up but not working — see
+  /// `connectionNoticeProvider`.
+  final String? notice;
 
   @override
   Widget build(BuildContext context) {
-    final s = controller.status;
+    final s = phase == null ? controller.status : ConnectionStatus.connecting;
     final color = switch (s) {
       ConnectionStatus.protected => WColors.protected,
       ConnectionStatus.connecting => WColors.connecting,
@@ -125,10 +203,11 @@ class _StatusLine extends StatelessWidget {
       ConnectionStatus.disconnected =>
         Theme.of(context).colorScheme.onSurfaceVariant,
     };
-    final label = controller.isSwitching ? 'Смена локации…' : s.label;
+    final label = phase ??
+        (controller.isSwitching ? 'Смена локации…' : s.label);
     final key = ValueKey<String>(
-      '$s|${controller.isSwitching}|${controller.activeNode?.id}|'
-      '${controller.lastError}',
+      '$label|${controller.activeNode?.id}|${controller.lastError}|$notice|'
+      '$exitNotice|$country|$exit',
     );
 
     return AnimatedSwitcher(
@@ -162,10 +241,34 @@ class _StatusLine extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CountryLabel(
-                      controller.activeNode!.countryCode,
+                      country ?? controller.activeNode!.countryCode,
                       flagSize: 18,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
+                    // Green only when independent geolocation sources agree;
+                    // a single source is shown without a mark at all.
+                    if (exit?.confirmed ?? false)
+                      const Padding(
+                        padding: EdgeInsets.only(left: WSpace.xs),
+                        child: Tooltip(
+                          message: 'Страна выхода подтверждена: независимые '
+                              'геобазы сходятся',
+                          child: Icon(
+                            Icons.verified_rounded,
+                            size: 15,
+                            color: WColors.protected,
+                          ),
+                        ),
+                      )
+                    else if (exit?.disputed ?? false)
+                      const Padding(
+                        padding: EdgeInsets.only(left: WSpace.xs),
+                        child: Icon(
+                          Icons.help_rounded,
+                          size: 15,
+                          color: WColors.connecting,
+                        ),
+                      ),
                     _ElapsedText(controller: controller),
                   ],
                 ),
@@ -179,6 +282,46 @@ class _StatusLine extends StatelessWidget {
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
+                  ),
+                ],
+                if (!controller.activeNode!.isHopSecure) ...[
+                  const SizedBox(height: WSpace.sm),
+                  HopSecurityTag(controller.activeNode!.hopSecurity),
+                ],
+                // The sources disagree and nothing else is being said about
+                // it (no country was picked): still tell the user, plainly.
+                if (exitNotice == null && (exit?.disputed ?? false)) ...[
+                  const SizedBox(height: WSpace.xs),
+                  Text(
+                    'По другим геобазам — '
+                    '${countryNameRu(exit!.disputedWith)}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelSmall
+                        ?.copyWith(color: WColors.connecting),
+                  ),
+                ],
+                if (exitNotice != null) ...[
+                  const SizedBox(height: WSpace.sm),
+                  Text(
+                    exitNotice!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: WColors.connecting),
+                  ),
+                ],
+                if (notice != null) ...[
+                  const SizedBox(height: WSpace.sm),
+                  Text(
+                    notice!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: WColors.connecting),
                   ),
                 ],
               ],

@@ -73,6 +73,21 @@ func wrnRelaunchElevated() C.int {
 	return C.int(relaunchElevated())
 }
 
+// wrnSelectCandidate switches the live selector group to the candidate at
+// index `i` (the order the outbounds were passed to wrnStart) without
+// restarting the engine. Returns 0 on success, 1 when the switch was refused
+// (single-node session, bad index, engine stopped) — the caller then falls back
+// to stop/start.
+//
+//export wrnSelectCandidate
+func wrnSelectCandidate(i C.int) C.int {
+	if err := selectCandidate(int(i)); err != nil {
+		emit("warn", "core", "hot-swap не удался: "+err.Error())
+		return 1
+	}
+	return 0
+}
+
 //export wrnStatsJSON
 func wrnStatsJSON() *C.char {
 	return C.CString(statsJSON())

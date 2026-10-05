@@ -32,9 +32,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Tell "the branch does not exist yet" (first run) apart from "the checkout
+      # failed". Only the former may start with an empty observation history — a
+      # transient failure must fail the run, not silently reset seen.json.
+      - name: Does pool-data exist?
+        id: pooldata
+        working-directory: .
+        run: |
+          if git ls-remote --exit-code --heads origin pool-data >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            rc=$?
+            if [ "$rc" -ne 2 ]; then
+              echo "::error::git ls-remote failed (exit $rc)"; exit 1
+            fi
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout pool-data branch
+        if: steps.pooldata.outputs.exists == 'true'
         uses: actions/checkout@v4
-        continue-on-error: true
         with:
           ref: pool-data
           path: pool-data
@@ -69,6 +86,7 @@ jobs:
             --out out/nodes_pool.json \
             --seen state/seen.json \
             --source-run "${{ github.run_id }}" \
+            --min-nodes 20 \
             ${{ (github.event_name == 'workflow_dispatch' && inputs.keep_dead) && '--keep-dead' || '' }}
           python -m weronity_collector validate out/nodes_pool.json
           python -m weronity_collector stats out/nodes_pool.json

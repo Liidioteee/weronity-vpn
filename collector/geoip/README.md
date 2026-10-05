@@ -4,8 +4,10 @@ MaxMind-format `.mmdb` databases used by `pipeline/geoip.py` for country + ASN
 resolution. **Not committed** (see `.gitignore`).
 
 Populate from [sapics/ip-location-db](https://github.com/sapics/ip-location-db)
-via the jsDelivr CDN (no API token; country data is CC0/PDDL, ASN data derives
-from RouteViews/whois):
+via the jsDelivr CDN (no API token). Country data is **DB-IP Lite** — a
+geolocation database (where the address is), not a registry one (where the block
+was registered); CC BY 4.0, attribution "IP Geolocation by DB-IP"
+(https://db-ip.com). ASN data derives from RouteViews/whois:
 
 ```bash
 python scripts/fetch_geoip.py            # writes dbip-country-lite.mmdb + dbip-asn-lite.mmdb here

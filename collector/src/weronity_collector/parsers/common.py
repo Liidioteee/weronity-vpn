@@ -45,14 +45,20 @@ def split_userinfo_host(rest: str) -> tuple[str, str, int]:
 
     Host may be an IPv6 literal in brackets.
     """
-    parts = urlsplit("//" + rest)
-    require(parts.hostname, f"no host in {rest!r}")
-    require(parts.port, f"no port in {rest!r}")
+    # urlsplit() and .port raise a bare ValueError on a bad IPv6 literal or an
+    # out-of-range / non-numeric port; a scraped list is full of those.
+    try:
+        parts = urlsplit("//" + rest)
+        hostname, port = parts.hostname, parts.port
+    except ValueError as exc:
+        raise ParseError(f"bad authority {rest!r}: {exc}") from exc
+    require(hostname, f"no host in {rest!r}")
+    require(port, f"no port in {rest!r}")
     userinfo = ""
     if "@" in parts.netloc:
         userinfo = parts.netloc.rsplit("@", 1)[0]
-    assert parts.hostname is not None and parts.port is not None
-    return unquote(userinfo), parts.hostname, parts.port
+    assert hostname is not None and port is not None
+    return unquote(userinfo), hostname, port
 
 
 def first(d: dict[str, str], *keys: str, default: str = "") -> str:
@@ -64,6 +70,14 @@ def first(d: dict[str, str], *keys: str, default: str = "") -> str:
 
 def as_bool(value: str | None) -> bool:
     return str(value).lower() in ("1", "true", "yes", "on")
+
+
+def as_int(value: object, default: int = 0) -> int:
+    """Lenient int: garbage (``"abc"``, ``None``, ``"1.0"``) degrades to ``default``."""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
 
 
 def csv_list(value: str | None) -> list[str]:

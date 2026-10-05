@@ -31,18 +31,23 @@ trap 'rm -rf "$tmp"' EXIT
 echo "downloading $url"
 curl -fsSL --retry 3 -o "$tmp/wintun.zip" "$url"
 
+# The DLL ends up next to an executable that may run elevated — never unpack an
+# archive we could not verify.
 if command -v sha256sum >/dev/null 2>&1; then
   got="$(sha256sum "$tmp/wintun.zip" | cut -d' ' -f1)"
-  if [ "$got" != "$sha256_zip" ]; then
-    echo "error: wintun-${ver}.zip sha256 mismatch" >&2
-    echo "  expected $sha256_zip" >&2
-    echo "  got      $got" >&2
-    exit 1
-  fi
-  echo "sha256 ok"
+elif command -v shasum >/dev/null 2>&1; then
+  got="$(shasum -a 256 "$tmp/wintun.zip" | cut -d' ' -f1)"
 else
-  echo "warning: sha256sum not found — skipping checksum verification" >&2
+  echo "error: neither sha256sum nor shasum found — cannot verify wintun-${ver}.zip" >&2
+  exit 1
 fi
+if [ "$got" != "$sha256_zip" ]; then
+  echo "error: wintun-${ver}.zip sha256 mismatch" >&2
+  echo "  expected $sha256_zip" >&2
+  echo "  got      $got" >&2
+  exit 1
+fi
+echo "sha256 ok"
 
 # Zip layout: wintun/bin/<arch>/wintun.dll
 if command -v unzip >/dev/null 2>&1; then

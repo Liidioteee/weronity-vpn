@@ -9,6 +9,7 @@ Dispatch by ``RawDocument.kind``:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -17,6 +18,8 @@ from .parsers import ParseError, iter_uris, parse_uri
 from .parsers.clash import parse_clash
 from .parsers.common import b64decode_any
 from .sources.base import RawDocument
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -40,8 +43,17 @@ def harvest(docs: Iterator[RawDocument] | list[RawDocument]) -> tuple[list[Parse
                 continue
             kind = "uri_list"
 
+        # The source is a third-party repo: anything in it can be malformed. A
+        # parser bug or an unexpected shape costs that one entry (or that one
+        # file), never the whole run — hence the deliberately broad excepts.
         if kind == "clash":
-            for node in parse_clash(text):
+            try:
+                clash_nodes = parse_clash(text)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("skipping %s: %s", doc.source_file, exc)
+                stats.failed += 1
+                continue
+            for node in clash_nodes:
                 node.source, node.source_file = doc.source, doc.source_file
                 nodes.append(node)
                 stats.parsed += 1
@@ -52,6 +64,10 @@ def harvest(docs: Iterator[RawDocument] | list[RawDocument]) -> tuple[list[Parse
                 try:
                     node = parse_uri(uri)
                 except ParseError:
+                    stats.failed += 1
+                    continue
+                except Exception as exc:  # noqa: BLE001
+                    log.debug("unexpected %s parsing %r", type(exc).__name__, uri[:60])
                     stats.failed += 1
                     continue
                 node.source, node.source_file = doc.source, doc.source_file

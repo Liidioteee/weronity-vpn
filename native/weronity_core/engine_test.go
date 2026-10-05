@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -174,4 +176,303 @@ func TestDoubleStartIsNoop(t *testing.T) {
 	if err := startEngine(cfg); err != nil {
 		t.Fatalf("second start should be a silent no-op, got: %v", err)
 	}
+}
+
+// The hot-swap path against a *real* sing-box: three unroutable candidates
+// become a selector group, and selectCandidate moves between them without the
+// engine restarting. Proxy mode, so no tun and no privileges are needed — the
+// selector machinery is identical in vpn mode.
+func TestSelectorHotSwapWithRealSingBox(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+			{"type":"trojan","server":"192.0.2.2","server_port":443,"password":"b"},
+			{"type":"trojan","server":"192.0.2.3","server_port":443,"password":"c"}
+		],
+		"mode": "proxy",
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine with a candidate set: %v", err)
+	}
+
+	snap := statsMap(t)
+	if snap["can_hotswap"] != true {
+		t.Fatalf("stats.can_hotswap = %v, want true", snap["can_hotswap"])
+	}
+	if n, _ := snap["candidates"].(float64); int(n) != 3 {
+		t.Errorf("stats.candidates = %v, want 3", snap["candidates"])
+	}
+	if snap["active_tag"] != nodeTag(0) {
+		t.Errorf("stats.active_tag = %v, want %q", snap["active_tag"], nodeTag(0))
+	}
+
+	if err := selectCandidate(2); err != nil {
+		t.Fatalf("hot-swap to candidate 2: %v", err)
+	}
+	if !engineRunning() {
+		t.Fatal("hot-swap must not stop the engine")
+	}
+	if tag := statsMap(t)["active_tag"]; tag != nodeTag(2) {
+		t.Errorf("after swap active_tag = %v, want %q", tag, nodeTag(2))
+	}
+
+	if err := selectCandidate(3); err == nil {
+		t.Error("an out-of-range candidate should be refused")
+	}
+	if err := selectCandidate(-1); err == nil {
+		t.Error("a negative candidate should be refused")
+	}
+	// The refusals must not have disturbed the live selection.
+	if tag := statsMap(t)["active_tag"]; tag != nodeTag(2) {
+		t.Errorf("a refused swap changed the selection to %v", tag)
+	}
+}
+
+// A single-node session has no selector group, so hot-swap must refuse and let
+// the caller fall back to stop/start.
+func TestHotSwapRefusedForASingleNodeSession(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.9","server_port":443,"password":"x"},"listen_port":0,"self_test":false}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine: %v", err)
+	}
+	snap := statsMap(t)
+	if snap["can_hotswap"] != false {
+		t.Errorf("stats.can_hotswap = %v, want false", snap["can_hotswap"])
+	}
+	if snap["active_tag"] != proxyTag {
+		t.Errorf("stats.active_tag = %v, want %q", snap["active_tag"], proxyTag)
+	}
+	if err := selectCandidate(0); err == nil {
+		t.Error("hot-swap without a selector group should be refused")
+	}
+	if !engineRunning() {
+		t.Error("a refused hot-swap must leave the engine running")
+	}
+}
+
+// A backup we cannot sanitise is dropped, but the node the user picked is not.
+func TestHostileBackupIsDroppedNotFatal(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+			{"type":"direct","server":"192.0.2.2","server_port":443},
+			{"type":"trojan","server":"192.0.2.3","server_port":443,"password":"c"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("a bad backup should not sink the session: %v", err)
+	}
+	snap := statsMap(t)
+	if n, _ := snap["candidates"].(float64); int(n) != 2 {
+		t.Errorf("candidates = %v, want 2 (the hostile one dropped)", snap["candidates"])
+	}
+	// The dropped entry must not shift the caller's numbering: index 2 is still
+	// the third node it sent, and index 1 (the one dropped) is simply gone.
+	if err := selectCandidate(2); err != nil {
+		t.Errorf("selecting the caller's index 2: %v", err)
+	}
+	if err := selectCandidate(1); err == nil {
+		t.Error("a dropped candidate must not be selectable")
+	}
+	if tag := statsMap(t)["active_tag"]; tag != nodeTag(1) {
+		t.Errorf("caller index 2 should map to %q, got %v", nodeTag(1), tag)
+	}
+}
+
+// …but a hostile *first* candidate is the node the user chose, so it is fatal.
+// A backup that sanitises fine but that sing-box itself refuses (an unknown
+// cipher here) used to fail box.New for the whole config — i.e. the user's own,
+// perfectly good node would not connect because of a neighbour in the list.
+func TestBackupSingBoxRejectsIsDroppedNotFatal(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+			{"type":"shadowsocks","server":"192.0.2.2","server_port":8388,"method":"bogus-cipher","password":"b"},
+			{"type":"vless","server":"192.0.2.3","server_port":443,"uuid":"11111111-1111-1111-1111-111111111111",
+				"tls":{"enabled":true,"server_name":"a.com","utls":{"enabled":true,"fingerprint":"no-such-browser"}}},
+			{"type":"trojan","server":"192.0.2.4","server_port":443,"password":"d"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("an unusable backup should not sink the session: %v", err)
+	}
+	snap := statsMap(t)
+	if n, _ := snap["candidates"].(float64); int(n) != 2 {
+		t.Errorf("candidates = %v, want 2 (both unusable backups dropped)", snap["candidates"])
+	}
+	if err := selectCandidate(3); err != nil {
+		t.Errorf("selecting the caller's index 3: %v", err)
+	}
+	for _, dropped := range []int{1, 2} {
+		if err := selectCandidate(dropped); err == nil {
+			t.Errorf("dropped candidate %d must not be selectable", dropped)
+		}
+	}
+}
+
+// …but when it is the node the user picked, the real reason must surface.
+func TestFirstCandidateSingBoxRejectsIsFatal(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"shadowsocks","server":"192.0.2.2","server_port":8388,"method":"bogus-cipher","password":"b"},
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	err := startEngine(cfg)
+	if err == nil {
+		t.Fatal("an unusable first candidate must fail the start")
+	}
+	if !strings.Contains(err.Error(), "bogus-cipher") {
+		t.Errorf("the error should name the real cause, got: %v", err)
+	}
+	if engineRunning() {
+		t.Fatal("engine must not be running")
+	}
+}
+
+func TestListenPortZeroPicksAFreePort(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	// Occupy the default port so "0 silently means 55555" would be visible.
+	if busy, err := net.Listen("tcp", "127.0.0.1:55555"); err == nil {
+		defer busy.Close()
+	}
+	var lines []string
+	var mu sync.Mutex
+	setEmitter(func(p string) { mu.Lock(); lines = append(lines, p); mu.Unlock() })
+	t.Cleanup(func() { setEmitter(nil) })
+
+	cfg := `{"outbound":{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+		"listen_port":0,"self_test":false}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine: %v", err)
+	}
+	if port, _ := statsMap(t)["socks_port"].(float64); port == 0 || port == 55555 {
+		t.Errorf("socks_port = %v, want an OS-assigned port", port)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	for _, l := range lines {
+		if strings.Contains(l, "занят") {
+			t.Errorf("port 0 must not go through the busy-port fallback: %s", l)
+		}
+	}
+}
+
+func TestMeasureLatencyNeedsARealHTTPAnswer(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	var answer atomic.Value
+	answer.Store("HTTP/1.1 204 No Content\r\n\r\n")
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 512)
+				if _, err := c.Read(buf); err != nil {
+					return
+				}
+				_, _ = c.Write([]byte(answer.Load().(string)))
+			}(c)
+		}
+	}()
+	toServer := func(string, string) (net.Conn, error) { return net.Dial("tcp", ln.Addr().String()) }
+
+	if ms, ok := measureLatency(toServer); !ok || ms < 1 {
+		t.Errorf("measureLatency = %d, %v; want a positive reading", ms, ok)
+	}
+	answer.Store("nope!")
+	if _, ok := measureLatency(toServer); ok {
+		t.Error("a non-HTTP answer must not count as a latency sample")
+	}
+	refused := func(string, string) (net.Conn, error) { return nil, net.ErrClosed }
+	if ms, ok := measureLatency(refused); ok || ms != 0 {
+		t.Errorf("a failed dial = %d, %v; want 0, false", ms, ok)
+	}
+}
+
+func TestHostileFirstCandidateIsFatal(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"direct","server":"192.0.2.1","server_port":443},
+			{"type":"trojan","server":"192.0.2.3","server_port":443,"password":"c"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err == nil {
+		t.Error("a hostile primary node must be rejected")
+	}
+	if engineRunning() {
+		t.Error("engine should not be running")
+	}
+}
+
+// When every backup is rejected the session degrades to the single-node shape:
+// the remaining node keeps the "proxy" tag and no selector wraps a group of one.
+func TestAllBackupsRejectedFallsBackToSingleNode(t *testing.T) {
+	t.Cleanup(stopEngine)
+	stopEngine()
+
+	cfg := `{
+		"outbounds": [
+			{"type":"trojan","server":"192.0.2.1","server_port":443,"password":"a"},
+			{"type":"block"}
+		],
+		"listen_port": 0,
+		"self_test": false
+	}`
+	if err := startEngine(cfg); err != nil {
+		t.Fatalf("startEngine: %v", err)
+	}
+	snap := statsMap(t)
+	if snap["active_tag"] != proxyTag {
+		t.Errorf("active_tag = %v, want %q", snap["active_tag"], proxyTag)
+	}
+	if snap["can_hotswap"] != false {
+		t.Errorf("can_hotswap = %v, want false", snap["can_hotswap"])
+	}
+}
+
+func statsMap(t *testing.T) map[string]any {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal([]byte(statsJSON()), &m); err != nil {
+		t.Fatalf("statsJSON invalid: %v", err)
+	}
+	return m
 }

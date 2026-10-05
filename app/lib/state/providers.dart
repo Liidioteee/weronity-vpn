@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
@@ -13,7 +14,9 @@ import '../data/pool_repository.dart';
 import '../data/settings_repository.dart';
 import '../domain/node.dart';
 import 'bundles.dart';
+import 'candidates.dart';
 import 'custom_keys.dart';
+import 'exit_geo.dart';
 
 /// Hive boxes — opened in `main()` and injected via [ProviderScope.overrides].
 final poolCacheBoxProvider = Provider<Box<String>>(
@@ -31,7 +34,10 @@ final sessionBoxProvider = Provider<Box<dynamic>>(
 
 final poolRepositoryProvider = Provider<PoolRepository>((ref) {
   final repo = PoolRepository(cacheBox: ref.watch(poolCacheBoxProvider));
-  final override = ref.watch(settingsProvider).poolUrlOverride;
+  // select(): only the URL may rebuild the repository. Watching the whole
+  // settings object re-parsed the pool on every unrelated toggle.
+  final override =
+      ref.watch(settingsProvider.select((s) => s.poolUrlOverride));
   if (override != null && override.trim().isNotEmpty) {
     repo.poolUrl = override.trim();
   }
@@ -73,6 +79,8 @@ class SettingsNotifier extends Notifier<Settings> {
       _mutate(state.copyWith(connectionMode: v));
   Future<void> setProxyPort(int v) =>
       _mutate(state.copyWith(proxyPort: v.clamp(1024, 65535)));
+  Future<void> setStrictRoute(bool v) =>
+      _mutate(state.copyWith(strictRoute: v));
   Future<void> setCloseAction(WindowCloseAction v) =>
       _mutate(state.copyWith(closeAction: v));
   Future<void> setCheckConcurrency(int v) =>
@@ -120,8 +128,9 @@ final poolPollingProvider = Provider<void>((ref) {
   });
 });
 
-/// All selectable nodes: crowd-sourced pool + user's custom keys / subscriptions.
-final nodesProvider = Provider<List<Node>>((ref) {
+/// Crowd-sourced pool + user's custom keys / subscriptions, as listed — each
+/// node still carries the country its source claimed.
+final _listedNodesProvider = Provider<List<Node>>((ref) {
   final pool = ref.watch(poolProvider).valueOrNull?.pool.nodes ?? const <Node>[];
   final custom = ref.watch(customNodesProvider);
   if (custom.isEmpty) return pool;
@@ -130,6 +139,17 @@ final nodesProvider = Provider<List<Node>>((ref) {
     byId.putIfAbsent(n.id, () => n);
   }
   return byId.values.toList();
+});
+
+/// All selectable nodes. Where a check has seen which country a node really
+/// exits in ([exitGeoProvider]), that replaces the listed country — so the
+/// country picker, the filters, the selection and failover all work with where
+/// the traffic actually comes out.
+final nodesProvider = Provider<List<Node>>((ref) {
+  final listed = ref.watch(_listedNodesProvider);
+  final exits = ref.watch(exitGeoProvider);
+  if (exits.isEmpty) return listed;
+  return [for (final n in listed) withExitCountry(n, exits[n.id]?.country)];
 });
 
 // --- filtering -----------------------------------------------------------
@@ -162,8 +182,9 @@ final logControllerProvider =
     ChangeNotifierProvider<LogController>((ref) => LogController());
 
 /// The active connection engine: the real sing-box bridge when the native core
-/// loaded, otherwise the Phase-2 stub. Both satisfy [ConnectionEngine], so the
-/// whole UI is unchanged.
+/// loaded. Without it a release build gets [UnavailableEngine], which refuses to
+/// connect; only a debug build falls back to the demo [ConnectionController]
+/// (and the home screen says so).
 final connectionControllerProvider = ChangeNotifierProvider<ConnectionEngine>(
   (ref) {
     void log(String level, String tag, String message) =>
@@ -175,16 +196,19 @@ final connectionControllerProvider = ChangeNotifierProvider<ConnectionEngine>(
         core: core,
         modeOf: () => ref.read(settingsProvider).connectionMode,
         portOf: () => ref.read(settingsProvider).proxyPort,
+        strictRouteOf: () => ref.read(settingsProvider).strictRoute,
+        // read (not watch): the pool refreshes every 30 min and must never
+        // rebuild the engine — the backups are only needed at connect time.
+        backupsFor: (primary) => ref.read(backupCandidatesProvider)(primary),
         onLog: log,
       );
     }
-    return ConnectionController(onLog: log);
+    if (kDebugMode) return ConnectionController(onLog: log);
+    return UnavailableEngine(reason: core.loadError, onLog: log);
   },
 );
 
 /// Loads the Go/cgo FFI core once and reports the outcome into the log stream.
-/// The client keeps running on the stub [ConnectionController] regardless; this
-/// just surfaces whether the real engine is wired up yet (Phase 3).
 final nativeCoreProvider = Provider<NativeCore>((ref) {
   final core = NativeCore.instance();
   final log = ref.read(logControllerProvider);
@@ -196,7 +220,7 @@ final nativeCoreProvider = Provider<NativeCore>((ref) {
         log.add('debug', 'ffi', 'ffi smoke: ping(41) = ${core.ping(41)}');
       case NativeCoreState.unavailable:
         log.add('warn', 'ffi',
-            'нативное ядро не загрузилось (${core.loadError ?? "?"}) — заглушка');
+            'нативное ядро не загрузилось (${core.loadError ?? "?"})');
       case NativeCoreState.unsupported:
         log.add(
             'info', 'ffi', 'нативное ядро для этой платформы пока не собрано');
@@ -205,10 +229,6 @@ final nativeCoreProvider = Provider<NativeCore>((ref) {
   return core;
 });
 
-/// Resolves a [Selection] to a concrete node against the current pool:
-/// an explicit node as-is; otherwise the lowest-ping recommended node in the
-/// chosen country (or globally for "⚡ Авто"). Session-priority for a previously
-/// used node is Phase 4.
 // --- session persistence ---------------------------------------------
 
 Map<String, dynamic> selectionToJson(Selection s) {
@@ -237,16 +257,28 @@ Selection selectionFromJson(Object? raw, List<Node> nodes) {
   }
 }
 
+/// "Already restored" is a fact about *this run* of the app, so it lives in
+/// memory. (It used to be written into the persistent session box, which made
+/// the restore work exactly once per installation.)
+class _RestoreOnce {
+  bool done = false;
+}
+
+final _restoreOnceProvider = Provider<_RestoreOnce>((ref) => _RestoreOnce());
+
 /// Re-applies the location/bundle the user had chosen last session, once the
 /// pool is loaded. Watched once at the app root.
 final sessionRestoreProvider = Provider<void>((ref) {
   final nodes = ref.watch(nodesProvider);
   if (nodes.isEmpty) return;
-  final box = ref.read(sessionBoxProvider);
-  if (box.get('selection.restored') == true) return;
+  final once = ref.read(_restoreOnceProvider);
+  if (once.done) return;
+  once.done = true;
 
+  final box = ref.read(sessionBoxProvider);
+  // Left behind by older builds; harmless, but no reason to keep it.
+  if (box.get('selection.restored') != null) box.delete('selection.restored');
   final saved = selectionFromJson(box.get('selection'), nodes);
-  box.put('selection.restored', true);
   if (saved.isAuto) return;
 
   Future.microtask(() {
@@ -257,6 +289,21 @@ final sessionRestoreProvider = Provider<void>((ref) {
   });
 });
 
+/// Backups preloaded into the selector group next to the chosen node, so a
+/// later switch is a hot-swap rather than a reconnect. See `backupCandidates`.
+final backupCandidatesProvider = Provider<List<Node> Function(Node)>((ref) {
+  final nodes = ref.watch(nodesProvider);
+  return (primary) => backupCandidates(
+        primary,
+        nodes,
+        limit: SingBoxBridge.maxCandidates - 1,
+      );
+});
+
+/// Resolves a [Selection] to a concrete node against the current pool:
+/// an explicit node as-is; otherwise the lowest-ping recommended node in the
+/// chosen country (or globally for "⚡ Авто"). The verified pick and the
+/// "last good node" preference sit on top of this — see `connectPickProvider`.
 final resolveSelectionProvider = Provider<Node? Function(Selection)>((ref) {
   final nodes = ref.watch(nodesProvider);
   final bundles = ref.watch(allBundlesProvider);
@@ -276,6 +323,9 @@ final resolveSelectionProvider = Provider<Node? Function(Selection)>((ref) {
     if (sel.countryCode != null) {
       pool = pool.where((n) => n.countryCode == sel.countryCode);
     }
+    // An automatic choice avoids nodes whose hop is not properly encrypted
+    // unless nothing else is alive.
+    pool = preferSecure(pool);
     final recommended = pool.where((n) => n.recommended);
     return pickLowestPing(recommended.isNotEmpty ? recommended : pool);
   };

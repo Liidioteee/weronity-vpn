@@ -20,4 +20,13 @@ void main() {
     expect(geo.lookupIp(GeoIpService.parseV4('77.88.8.8')!), 'RU'); // Yandex
     expect(geo.lookupIp(GeoIpService.parseV4('1.1.1.1')!), isNotNull);
   });
+
+  // The asset must say where an address *is*, not where its block was
+  // registered: this FDCservers (a US company) range sits in Amsterdam, and a
+  // registry-based table called it "US" — which the app then showed as the
+  // node's country.
+  test('a hosting range is located, not attributed to its registrant', () {
+    final geo = GeoIpService.parseBytes(file.readAsBytesSync());
+    expect(geo.lookupIp(GeoIpService.parseV4('50.7.120.162')!), 'NL');
+  });
 }

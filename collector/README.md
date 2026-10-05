@@ -23,7 +23,7 @@ pytest
 src/weronity_collector/
   schema.py      — модель Node, JSON-схема пула, валидация
   sources/       — Source-абстракция + github-источник
-  parsers/       — vless, hysteria2, trojan, vmess, shadowsocks, tuic, shadowtls,
+  parsers/       — vless, hysteria2, trojan, vmess, shadowsocks, tuic,
                    clash (YAML), subscription (base64)
   pipeline/      — decode, sanitize, dedup, geoip, ping, classify, serialize
   __main__.py    — CLI (run, validate, stats)

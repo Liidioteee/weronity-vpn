@@ -17,7 +17,7 @@ func mustJSON(t *testing.T, s string) map[string]any {
 
 func TestSanitizeRejectsNonProxyTypes(t *testing.T) {
 	for _, ty := range []string{"direct", "block", "dns", "selector", "urltest", "socks", "http", "tor", "ssh", "wireguard", ""} {
-		_, err := sanitizeOutbound(map[string]any{"type": ty, "server": "x", "server_port": 1})
+		_, err := sanitizeOutbound(map[string]any{"type": ty, "server": "x", "server_port": 1}, proxyTag)
 		if err == nil {
 			t.Errorf("type %q should be rejected", ty)
 		}
@@ -52,7 +52,7 @@ func TestSanitizeForcesTagAndDropsDangerousKeys(t *testing.T) {
 		"transport": {"type":"ws","path":"/x","headers":{"Host":"a.com"},"early_data_command":"rm -rf /"}
 	}`)
 
-	res, err := sanitizeOutbound(raw)
+	res, err := sanitizeOutbound(raw, proxyTag)
 	if err != nil {
 		t.Fatalf("sanitize: %v", err)
 	}
@@ -122,12 +122,12 @@ func TestSanitizePreservesTransportHeaders(t *testing.T) {
 				"Host": "telegram.org",
 				"X-Evil\r\nInjected": "1",
 				"drop_command": "x",
-				"Too-Long": "` + strings.Repeat("A", 600) + `"
+				"Too-Long": "`+strings.Repeat("A", 600)+`"
 			}
 		}
 	}`)
 
-	res, err := sanitizeOutbound(raw)
+	res, err := sanitizeOutbound(raw, proxyTag)
 	if err != nil {
 		t.Fatalf("sanitize: %v", err)
 	}
@@ -165,23 +165,23 @@ func TestSanitizeHeadersCap(t *testing.T) {
 }
 
 func TestSanitizeRequiresServerAndPort(t *testing.T) {
-	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "password": "x"}); err == nil {
+	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "password": "x"}, proxyTag); err == nil {
 		t.Error("missing server must be rejected")
 	}
-	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "server": "h", "password": "x"}); err == nil {
+	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "server": "h", "password": "x"}, proxyTag); err == nil {
 		t.Error("missing server_port must be rejected")
 	}
-	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "server": "h", "server_port": 443.0, "password": "x"}); err != nil {
+	if _, err := sanitizeOutbound(map[string]any{"type": "trojan", "server": "h", "server_port": 443.0, "password": "x"}, proxyTag); err != nil {
 		t.Errorf("valid trojan rejected: %v", err)
 	}
 }
 
 func TestBuildConfigIsLoopbackOnlyAndApiFree(t *testing.T) {
-	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`))
+	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`), proxyTag)
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := buildSingBoxConfig(san.Outbound, 10808, "info")
+	raw, err := buildSingBoxConfig([]map[string]any{san.Outbound}, 10808, "info")
 	if err != nil {
 		t.Fatalf("buildSingBoxConfig: %v", err)
 	}
@@ -211,11 +211,11 @@ func TestBuildConfigIsLoopbackOnlyAndApiFree(t *testing.T) {
 }
 
 func TestBuildTunConfigShape(t *testing.T) {
-	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`))
+	san, err := sanitizeOutbound(mustJSON(t, `{"type":"trojan","server":"1.2.3.4","server_port":443,"password":"p"}`), proxyTag)
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := buildTunConfig(san.Outbound, "info")
+	raw, err := buildTunConfig([]map[string]any{san.Outbound}, "info", false)
 	if err != nil {
 		t.Fatalf("buildTunConfig: %v", err)
 	}
@@ -267,12 +267,12 @@ func TestAssertConfigSafeCatchesTampering(t *testing.T) {
 	}
 
 	badProxy := []string{
-		`{"inbounds":[{"type":"mixed","listen":"0.0.0.0","listen_port":1}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
-		`{"experimental":{"clash_api":{}},"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
-		`{"inbounds":[{"listen":"127.0.0.1"},{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
-		`{"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"}]}`,
+		`{"inbounds":[{"type":"mixed","listen":"0.0.0.0","listen_port":1}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
+		`{"experimental":{"clash_api":{}},"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
+		`{"inbounds":[{"listen":"127.0.0.1"},{"listen":"127.0.0.1"}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
+		`{"inbounds":[{"listen":"127.0.0.1"}],"outbounds":[{"type":"trojan","tag":"proxy"}]}`,
 		// a tun inbound must not pass as proxy mode
-		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 	}
 	for i, b := range badProxy {
 		if err := assertConfigSafe([]byte(b), "proxy"); err == nil {
@@ -282,15 +282,15 @@ func TestAssertConfigSafeCatchesTampering(t *testing.T) {
 
 	badTun := []string{
 		// tun with a listen address (leak)
-		`{"inbounds":[{"type":"tun","listen":"0.0.0.0","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"inbounds":[{"type":"tun","listen":"0.0.0.0","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 		// not a tun inbound
-		`{"inbounds":[{"type":"mixed","listen":"127.0.0.1"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"inbounds":[{"type":"mixed","listen":"127.0.0.1"}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 		// auto_route missing
-		`{"inbounds":[{"type":"tun"}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"inbounds":[{"type":"tun"}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 		// experimental block
-		`{"experimental":{"v2ray_api":{}},"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"},{"tag":"direct"}]}`,
+		`{"experimental":{"v2ray_api":{}},"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"},{"type":"direct","tag":"direct"}]}`,
 		// missing direct outbound
-		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"tag":"proxy"}]}`,
+		`{"inbounds":[{"type":"tun","auto_route":true}],"outbounds":[{"type":"trojan","tag":"proxy"}]}`,
 	}
 	for i, b := range badTun {
 		if err := assertConfigSafe([]byte(b), "vpn"); err == nil {
@@ -331,10 +331,131 @@ func TestStartConfigModeParsing(t *testing.T) {
 			t.Errorf("mode(%q) = %q, want %q", in, got, want)
 		}
 	}
-	if (StartConfig{ListenPort: 8080}).listenPort() != 8080 {
+	port := func(p int) StartConfig { return StartConfig{ListenPort: &p} }
+	if port(8080).listenPort() != 8080 {
 		t.Error("explicit listen_port ignored")
 	}
-	if (StartConfig{ListenPort: 70000}).listenPort() != 55555 {
+	if port(70000).listenPort() != 55555 {
 		t.Error("out-of-range listen_port should fall back to default")
+	}
+	// An explicit 0 means "any free port"; an absent field means the default.
+	if port(0).listenPort() != 0 {
+		t.Error("listen_port 0 should mean a free port")
+	}
+	var fromJSON StartConfig
+	if err := json.Unmarshal([]byte(`{"listen_port":0}`), &fromJSON); err != nil || fromJSON.listenPort() != 0 {
+		t.Errorf("listen_port:0 from json = %d (err %v)", fromJSON.listenPort(), err)
+	}
+}
+
+func TestSanitizeRejectsUnroutableServers(t *testing.T) {
+	for _, server := range []string{
+		"127.0.0.1", "127.8.9.1", "::1", "[::1]", "0.0.0.0", "localhost", "LOCALHOST.",
+		"app.localhost", "169.254.169.254", "fe80::1", "224.0.0.1",
+	} {
+		raw := map[string]any{"type": "trojan", "server": server, "server_port": 443, "password": "x"}
+		if _, err := sanitizeOutbound(raw, proxyTag); err == nil {
+			t.Errorf("server %q must be rejected", server)
+		}
+	}
+	// a public address, a LAN address (the user's own box) and a hostname pass
+	for _, server := range []string{"8.8.8.8", "192.168.1.20", "10.0.0.5", "node.example.com", "2606:4700::1"} {
+		raw := map[string]any{"type": "trojan", "server": server, "server_port": 443, "password": "x"}
+		if _, err := sanitizeOutbound(raw, proxyTag); err != nil {
+			t.Errorf("server %q must be accepted: %v", server, err)
+		}
+	}
+}
+
+// The config must not carry options sing-box has scheduled for removal: the
+// `outbound` DNS rule item and `independent_cache`.
+func TestDNSBlockHasNoDeprecatedOptions(t *testing.T) {
+	clean := func() []map[string]any {
+		san, err := sanitizeOutbound(map[string]any{
+			"type": "trojan", "server": "1.2.3.4", "server_port": 443, "password": "x",
+		}, proxyTag)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return []map[string]any{san.Outbound}
+	}
+	proxyRaw, err := buildSingBoxConfig(clean(), 10808, "info")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tunRaw, err := buildTunConfig(clean(), "info", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, raw := range map[string][]byte{"proxy": proxyRaw, "vpn": tunRaw} {
+		var cfg struct {
+			DNS       map[string]any   `json:"dns"`
+			Outbounds []map[string]any `json:"outbounds"`
+			Route     map[string]any   `json:"route"`
+		}
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := cfg.DNS["rules"]; ok {
+			t.Errorf("%s: dns.rules should be gone", name)
+		}
+		if _, ok := cfg.DNS["independent_cache"]; ok {
+			t.Errorf("%s: dns.independent_cache should be gone", name)
+		}
+		// what replaces the rule: the node resolves its own hostname locally
+		if cfg.Outbounds[0]["domain_resolver"] != "dns-local" {
+			t.Errorf("%s: node outbound lost domain_resolver", name)
+		}
+		if cfg.Route["default_domain_resolver"] != "dns-local" {
+			t.Errorf("%s: route lost default_domain_resolver", name)
+		}
+	}
+}
+
+func TestBoundProxyConfigPinsTheInterface(t *testing.T) {
+	clean := func() []map[string]any {
+		san, err := sanitizeOutbound(map[string]any{
+			"type": "trojan", "server": "1.2.3.4", "server_port": 443, "password": "x",
+		}, proxyTag)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return []map[string]any{san.Outbound}
+	}
+	route := func(bind routeBinding) map[string]any {
+		raw, err := buildBoundProxyConfig(clean(), 10808, "warn", bind)
+		if err != nil {
+			t.Fatalf("build %+v: %v", bind, err)
+		}
+		var cfg struct {
+			Route map[string]any `json:"route"`
+		}
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			t.Fatal(err)
+		}
+		return cfg.Route
+	}
+
+	plain := route(routeBinding{})
+	if plain["auto_detect_interface"] != false {
+		t.Errorf("unbound config must not auto-detect: %v", plain)
+	}
+	if _, ok := plain["default_interface"]; ok {
+		t.Errorf("unbound config must not name an interface: %v", plain)
+	}
+
+	named := route(routeBinding{iface: "Ethernet", autoDetect: true})
+	if named["default_interface"] != "Ethernet" || named["auto_detect_interface"] != false {
+		t.Errorf("an explicit interface wins over auto-detect: %v", named)
+	}
+
+	auto := route(routeBinding{autoDetect: true})
+	if auto["auto_detect_interface"] != true {
+		t.Errorf("want auto-detect when the name is unknown: %v", auto)
+	}
+
+	// No tun is up in tests, so the probe engine must stay unbound.
+	if got := probeBinding(); got != (routeBinding{}) {
+		t.Errorf("probeBinding() without a vpn session = %+v", got)
 	}
 }

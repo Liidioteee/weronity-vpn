@@ -3,11 +3,15 @@
 
     python app/tool/build_geoip.py
 
-Downloads the country ranges from the sapics/ip-location-db project (jsDelivr
-CDN, no token, PDDL / CC0-style licensing), coalesces adjacent same-country
-ranges, and writes:
+Downloads the DB-IP Lite country ranges from the sapics/ip-location-db project
+(jsDelivr CDN, no token; CC BY 4.0), coalesces adjacent same-country ranges, and
+writes:
 
-    app/assets/geoip/ipv4_country.v1.bin
+    app/assets/geoip/ipv4_country.v2.bin
+
+DB-IP Lite is a *geolocation* set (where an address is). The registry-based
+`geo-whois-asn-country` set used before answers "where was this block
+registered", which mislabels most hosting ranges.
 
 Layout (all little-endian):
     magic     4 bytes   b"WGI2"
@@ -22,8 +26,8 @@ Layout (all little-endian):
 Lookup: binary-search the last record whose start_ip <= ip; cc_index 0 -> None.
 Offline, deterministic, ~2 MB.
 
-Attribution for anything derived from this asset:
-    "IP geolocation by DB-IP / ip-location-db (sapics)"
+Attribution (required by CC BY 4.0) wherever this asset is shipped:
+    "IP Geolocation by DB-IP" — https://db-ip.com
 """
 
 from __future__ import annotations
@@ -35,7 +39,7 @@ from pathlib import Path
 
 SRC = (
     "https://cdn.jsdelivr.net/npm/@ip-location-db/"
-    "geo-whois-asn-country/geo-whois-asn-country-ipv4-num.csv"
+    "dbip-country/dbip-country-ipv4-num.csv"
 )
 OUT = Path(__file__).resolve().parents[1] / "assets" / "geoip" / "ipv4_country.v2.bin"
 _UA = "weronity build_geoip"

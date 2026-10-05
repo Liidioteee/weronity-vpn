@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 
 from ..models import Endpoint, ParsedNode, Protocol, Transport
-from .common import ParseError
+from .common import ParseError, as_int
 
 _TYPE_MAP: dict[str, Protocol] = {
     "vless": "vless",
@@ -31,6 +31,11 @@ _NET_MAP: dict[str, Transport] = {
     "http": "h2",
     "httpupgrade": "httpupgrade",
 }
+
+
+def _as_dict(v: Any) -> dict[str, Any]:
+    """Option blocks (``ws-opts``…) are dicts in a well-formed config; anything else → empty."""
+    return v if isinstance(v, dict) else {}
 
 
 def _as_list(v: Any) -> list[str]:
@@ -54,6 +59,8 @@ def _one(px: dict[str, Any]) -> ParsedNode:
         port = int(px["port"])
     except (KeyError, ValueError, TypeError) as exc:
         raise ParseError("clash: proxy without valid port") from exc
+    if not 1 <= port <= 65535:
+        raise ParseError(f"clash: port {port} out of range")
     name = str(px.get("name") or f"{server}:{port}")
 
     network: Transport = _NET_MAP.get(str(px.get("network", "tcp")).lower(), "tcp")
@@ -61,7 +68,7 @@ def _one(px: dict[str, Any]) -> ParsedNode:
         network = "quic"
 
     tls_on = bool(px.get("tls")) or protocol in ("hysteria2", "tuic", "trojan")
-    reality = px.get("reality-opts") or {}
+    reality = _as_dict(px.get("reality-opts"))
     params: dict[str, Any] = {
         "security": "reality" if reality else ("tls" if tls_on else "none"),
         "sni": px.get("sni") or px.get("servername") or None,
@@ -74,12 +81,12 @@ def _one(px: dict[str, Any]) -> ParsedNode:
         params["short_id"] = reality.get("short-id", "")
 
     if network == "ws":
-        wopts = px.get("ws-opts") or {}
+        wopts = _as_dict(px.get("ws-opts"))
         params["path"] = wopts.get("path", "/")
-        headers = wopts.get("headers") or {}
+        headers = _as_dict(wopts.get("headers"))
         params["host_header"] = headers.get("Host") or headers.get("host") or None
     elif network == "grpc":
-        gopts = px.get("grpc-opts") or {}
+        gopts = _as_dict(px.get("grpc-opts"))
         params["service_name"] = gopts.get("grpc-service-name", "")
 
     if protocol == "vless":
@@ -90,7 +97,7 @@ def _one(px: dict[str, Any]) -> ParsedNode:
     elif protocol == "vmess":
         auth = str(px.get("uuid", ""))
         params["uuid"] = auth
-        params["alter_id"] = int(px.get("alterId", px.get("alter-id", 0)) or 0)
+        params["alter_id"] = as_int(px.get("alterId", px.get("alter-id", 0)))
         params["cipher"] = str(px.get("cipher", "auto") or "auto")
     elif protocol == "trojan":
         auth = str(px.get("password", ""))
@@ -145,7 +152,7 @@ def parse_clash(text: str) -> list[ParsedNode]:
             continue
         try:
             out.append(_one(px))
-        except ParseError:
+        except Exception:  # noqa: BLE001 - one malformed proxy must not drop the file
             continue
     return out
 

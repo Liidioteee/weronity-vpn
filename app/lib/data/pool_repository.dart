@@ -53,13 +53,17 @@ class PoolRepository {
   String poolUrl;
   final String assetPath;
 
+  /// The pool is a few hundred KB of JSON — parse it off the UI isolate.
+  static Future<NodePool> _decode(String source) =>
+      compute(NodePool.decode, source);
+
   /// Best-effort load without hitting the network: cache, else bundled asset.
   Future<PoolSnapshot> loadLocal() async {
     final cached = _cache.get(_cacheKey);
     if (cached != null) {
       try {
         return PoolSnapshot(
-          pool: NodePool.decode(cached),
+          pool: await _decode(cached),
           origin: PoolOrigin.cache,
           fetchedAt: DateTime.tryParse(_cache.get(_cacheAtKey) ?? '') ??
               DateTime.fromMillisecondsSinceEpoch(0),
@@ -70,7 +74,7 @@ class PoolRepository {
     }
     final asset = await rootBundle.loadString(assetPath);
     return PoolSnapshot(
-      pool: NodePool.decode(asset),
+      pool: await _decode(asset),
       origin: PoolOrigin.bundledAsset,
       fetchedAt: DateTime.fromMillisecondsSinceEpoch(0),
     );
@@ -86,7 +90,12 @@ class PoolRepository {
         throw http.ClientException('HTTP ${res.statusCode}');
       }
       final body = utf8.decode(res.bodyBytes);
-      final pool = NodePool.decode(body); // validates shape before caching
+      final pool = await _decode(body); // validates shape before caching
+      // A pool with no nodes is a collector accident, not news: keep what we
+      // have rather than overwrite a working cache with nothing.
+      if (pool.nodes.isEmpty) {
+        throw const FormatException('the fetched pool has no nodes');
+      }
       final now = DateTime.now();
       await _cache.put(_cacheKey, body);
       await _cache.put(_cacheAtKey, now.toIso8601String());

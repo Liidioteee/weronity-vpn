@@ -93,6 +93,20 @@ void main() {
       expect(back.proxyPort, 10800);
     });
 
+    // strict_route can strand a machine, so "off" must survive an empty box,
+    // an upgrade from a settings box written before the field existed, and a
+    // round-trip.
+    test('strict route defaults off and round-trips', () async {
+      final repo = SettingsRepository(_FakeBox());
+      expect(repo.load().strictRoute, isFalse);
+
+      await repo.save(const Settings(strictRoute: true));
+      expect(repo.load().strictRoute, isTrue);
+
+      await repo.save(const Settings());
+      expect(repo.load().strictRoute, isFalse);
+    });
+
     test('node-check settings default and round-trip, clamped on load', () async {
       final repo = SettingsRepository(_FakeBox());
       final def = repo.load();

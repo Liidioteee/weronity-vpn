@@ -81,6 +81,12 @@ abstract class ConnectionEngine implements ChangeNotifier {
   Future<void> disconnect();
   Future<bool> select(Selection selection, Node? Function(Selection) resolve);
   Future<void> toggle(Node? Function(Selection) resolve);
+
+  /// Moves a live session to [node] **without touching [selection]** — the
+  /// monitor's failover uses it, so "⚡ Авто" stays "⚡ Авто" and a chosen
+  /// country stays chosen. Returns `false` when there is no session to move or
+  /// the switch failed.
+  Future<bool> switchTo(Node node);
 }
 
 /// Auto-selects the lowest-latency node when the user picks "⚡ Авто".
@@ -109,12 +115,82 @@ class Selection {
   final Node? node;
 }
 
-/// **Stub** connection controller for Phase 2.
+/// The engine used when the native core did not load in a **release** build.
+///
+/// It refuses to connect and says why. A VPN client that shows "Защищено" over
+/// a tunnel that does not exist is worse than one that does not start, so the
+/// demo [ConnectionController] below is never used outside debug builds.
+class UnavailableEngine extends ChangeNotifier implements ConnectionEngine {
+  UnavailableEngine({this.reason, this.onLog});
+
+  /// Why the core is missing (the loader's error), for the log.
+  final String? reason;
+  final ConnectionLog? onLog;
+
+  static const message =
+      'Ядро VPN не загружено — подключение невозможно. Переустановите '
+      'приложение или проверьте, не удалил ли антивирус weronity_core.';
+
+  ConnectionStatus _status = ConnectionStatus.disconnected;
+  Selection _selection = const Selection.auto();
+
+  @override
+  ConnectionStatus get status => _status;
+  @override
+  Selection get selection => _selection;
+  @override
+  Node? get activeNode => null;
+  @override
+  String? get lastError =>
+      _status == ConnectionStatus.error ? message : null;
+  @override
+  TrafficSample get traffic => TrafficSample.zero;
+  @override
+  List<TrafficPoint> get history => const [];
+  @override
+  bool get isBusy => false;
+  @override
+  bool get isActive => false;
+  @override
+  bool get isSwitching => false;
+
+  @override
+  Future<void> connect(Node? Function(Selection) resolve) async {
+    _status = ConnectionStatus.error;
+    onLog?.call('error', 'core', '$message (${reason ?? "?"})');
+    notifyListeners();
+  }
+
+  @override
+  Future<void> disconnect() async {
+    if (_status == ConnectionStatus.disconnected) return;
+    _status = ConnectionStatus.disconnected;
+    notifyListeners();
+  }
+
+  @override
+  Future<bool> select(
+    Selection selection,
+    Node? Function(Selection) resolve,
+  ) async {
+    _selection = selection;
+    notifyListeners();
+    return true;
+  }
+
+  @override
+  Future<bool> switchTo(Node node) async => false;
+
+  @override
+  Future<void> toggle(Node? Function(Selection) resolve) => connect(resolve);
+}
+
+/// **Demo** connection controller — debug builds only (see [UnavailableEngine]).
 ///
 /// Drives the full UI state machine (disconnected → connecting → protected),
 /// emits synthetic traffic + a synthetic core-log stream, but performs no real
-/// tunnelling. Phase 3 replaces the body of [connect]/[disconnect]/[select] with
-/// the sing-box FFI bridge; the public surface is intended to stay the same.
+/// tunnelling. It lets the UI be developed and unit-tested without the native
+/// core; the home screen labels it as a demo.
 class ConnectionController extends ChangeNotifier implements ConnectionEngine {
   ConnectionController({this.onLog});
 
@@ -195,6 +271,21 @@ class ConnectionController extends ChangeNotifier implements ConnectionEngine {
     _activeNode = next;
     _switching = false;
     _log('info', 'route', 'переключение завершено: ${_name(next)}');
+    notifyListeners();
+    return true;
+  }
+
+  @override
+  Future<bool> switchTo(Node node) async {
+    if (_status != ConnectionStatus.protected) return false;
+    if (node.id == _activeNode?.id) return true;
+    _switching = true;
+    _log('info', 'route', 'переключение на ${_name(node)}…');
+    notifyListeners();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    _activeNode = node;
+    _switching = false;
+    _log('info', 'route', 'переключение завершено: ${_name(node)}');
     notifyListeners();
     return true;
   }

@@ -9,8 +9,11 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// relaunchFlag must match kRelaunchFlag in app/windows/runner/main.cpp.
+const relaunchFlag = "--relaunched"
+
 // isElevated reports 1 if this process runs with an elevated token (admin),
-// 0 if not, -1 if the check failed.
+// 0 if not.
 func isElevated() int {
 	tok := windows.GetCurrentProcessToken()
 	if tok.IsElevated() {
@@ -26,8 +29,10 @@ func isElevated() int {
 //	1  — the user declined the UAC prompt
 //	-1 — some other failure
 //
-// No arguments are passed: the app restores its own state (Settings live in
-// Hive), so the new instance lands where the old one was.
+// The app restores its own state (Settings live in Hive), so the new instance
+// lands where the old one was. The only argument is a marker for the runner's
+// single-instance check: it tells the new process that the instance it finds
+// still holding the lock is its own parent on the way out, not a rival.
 func relaunchElevated() int {
 	exe, err := os.Executable()
 	if err != nil {
@@ -41,7 +46,11 @@ func relaunchElevated() int {
 	if err != nil {
 		return -1
 	}
-	if err := windows.ShellExecute(0, verb, file, nil, nil, windows.SW_SHOWNORMAL); err != nil {
+	args, err := windows.UTF16PtrFromString(relaunchFlag)
+	if err != nil {
+		return -1
+	}
+	if err := windows.ShellExecute(0, verb, file, args, nil, windows.SW_SHOWNORMAL); err != nil {
 		if errors.Is(err, windows.ERROR_CANCELLED) {
 			return 1
 		}

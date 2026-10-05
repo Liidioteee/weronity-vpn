@@ -30,7 +30,7 @@ Weronity — VPN-клиент для Linux, Android и Windows (iOS — на у�
 ```
 GitHub Actions (cron 20m) ─ скрейпинг → санитизация → GeoIP → пинг → nodes_pool.json
         │ upload
-Cloudflare Pages/R2  ─ раздача nodes_pool.json (zero cost)
+ветка pool-data (raw.githubusercontent.com) ─ раздача nodes_pool.json
         │ polling
 Flutter GUI ──(Dart FFI)──> sing-box core  (fallback: Xray-core)
         │                        │
@@ -57,8 +57,11 @@ Cloudflare Workers API + D1 ─ репутация нод по ASN
 ## Протоколы
 
 VLESS (Reality/XTLS, WS, gRPC, HTTPUpgrade, TCP) · Hysteria 2 (obfs/Salamander) ·
-Trojan (TLS, gRPC, WS) · ShadowTLS v2/v3 · VMess (WS, TCP, mKCP, gRPC) ·
-Shadowsocks (AEAD, 2022-blake3) · TUIC v5.
+Trojan (TLS, gRPC, WS) · VMess (WS, TCP, gRPC) · Shadowsocks (AEAD, 2022-blake3) ·
+TUIC v5.
+
+Только то, что умеет sing-box: XHTTP/SplitHTTP, mKCP, SIP003-плагины и
+отдельный ShadowTLS отбрасываются ещё при разборе ключа.
 
 ## Статус
 
@@ -68,6 +71,9 @@ Shadowsocks (AEAD, 2022-blake3) · TUIC v5.
 
 [GNU GPL v3.0](LICENSE). На время разработки единственный источник ключей —
 [`igareck/vpn-configs-for-russia`](https://github.com/igareck/vpn-configs-for-russia).
+
+Страна узла определяется по базе DB-IP Lite (CC BY 4.0):
+[IP Geolocation by DB-IP](https://db-ip.com).
 
 ## Приватность
 

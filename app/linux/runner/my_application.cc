@@ -22,6 +22,18 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+
+  // The application is unique (see my_application_new): launching it again
+  // lands here, in the instance that is already running. Bring its window back
+  // — it may be hidden in the tray — instead of creating a second one.
+  GList* windows = gtk_application_get_windows(GTK_APPLICATION(application));
+  if (windows != nullptr) {
+    GtkWindow* existing = GTK_WINDOW(windows->data);
+    gtk_widget_show(GTK_WIDGET(existing));
+    gtk_window_present(existing);
+    return;
+  }
+
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
@@ -142,7 +154,11 @@ MyApplication* my_application_new() {
   // the application to be recognized beyond its binary name.
   g_set_prgname(APPLICATION_ID);
 
+  // Default (unique) flags, not G_APPLICATION_NON_UNIQUE: a second launch must
+  // activate the running instance, not start a rival for the same data files.
+  // Spelled as 0 because the named constant changed between GLib versions.
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",
-                                     G_APPLICATION_NON_UNIQUE, nullptr));
+                                     static_cast<GApplicationFlags>(0),
+                                     nullptr));
 }

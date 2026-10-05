@@ -67,15 +67,12 @@ def parse(uri: str) -> ParsedNode:
     except ValueError as exc:
         raise ParseError(f"ss: bad port {port_s!r}") from exc
 
-    q = flat_qs(query)
+    # A SIP003 plugin (obfs, v2ray-plugin, shadow-tls…) changes the wire protocol.
+    # The client never runs plugins from a scraped node, so without it the node
+    # is reachable but dead — drop it here rather than publish it.
+    if flat_qs(query).get("plugin"):
+        raise ParseError("ss: SIP003 plugin nodes are not supported")
     params: dict[str, object] = {"method": method, "password": password}
-    plugin = q.get("plugin")
-    if plugin:
-        pin, _, popts = plugin.partition(";")
-        params["plugin"] = pin
-        params["plugin_opts"] = popts
-        if pin in ("shadow-tls", "shadowtls"):
-            params["security"] = "shadowtls"
 
     return ParsedNode(
         protocol="shadowsocks",
