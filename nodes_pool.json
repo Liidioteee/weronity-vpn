@@ -1,0 +1,5011 @@
+{
+ "schema_version": 1,
+ "generated_at": "2026-11-07T13:38:47Z",
+ "generator": "weronity-collector/0.1.0",
+ "source_run": "42377885427",
+ "stats": {
+  "total": 72,
+  "by_protocol": {
+   "hysteria2": 2,
+   "vmess": 29,
+   "trojan": 9,
+   "vless": 32
+  },
+  "by_country": {
+   "US": 6,
+   "CA": 53,
+   "RU": 9,
+   "GB": 3,
+   "NL": 1
+  },
+  "by_lifetime": {
+   "fresh": 32,
+   "long_lived": 19,
+   "short_lived": 21
+  }
+ },
+ "nodes": [
+  {
+   "id": "49c5a387b341",
+   "protocol": "hysteria2",
+   "transport": "quic",
+   "tag": "🇺🇸 United States, Orem | [BL]",
+   "endpoint": {
+    "host": "177.202.75.56",
+    "port": 443,
+    "resolved_ip": "177.202.75.56"
+   },
+   "geo": {
+    "country": "US",
+    "country_name": null,
+    "flag": "🇺🇸",
+    "asn": null,
+    "as_org": null,
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": false,
+    "ping_ms": 106,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T00:57:21Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 12,
+    "class": "fresh",
+    "seen_runs": 3,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "fi1.obxodvpn.us",
+    "security": "tls",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": true
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "a1162d14c08592c742b53e292a362a1f08c61aa2"
+   },
+   "recommended": true,
+   "raw_uri": "hysteria2://146d567c-6335-4e63-a8aa-7ec068642440@177.202.75.56:443?sni=fi1.obxodvpn.us&fp=firefox#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20Orem%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, Orem | [BL]",
+    "server": "177.202.75.56",
+    "server_port": 443,
+    "type": "hysteria2",
+    "password": "146d567c-6335-4e63-a8aa-7ec068642440",
+    "tls": {
+     "enabled": true,
+     "server_name": "fi1.obxodvpn.us",
+     "alpn": [
+      "h3"
+     ]
+    }
+   }
+  },
+  {
+   "id": "e60aad756bb0",
+   "protocol": "hysteria2",
+   "transport": "quic",
+   "tag": "🇺🇸 United States, Orem | [BL]",
+   "endpoint": {
+    "host": "fi1.obxodvpn.us",
+    "port": 443,
+    "resolved_ip": "177.202.75.56"
+   },
+   "geo": {
+    "country": "US",
+    "country_name": null,
+    "flag": "🇺🇸",
+    "asn": null,
+    "as_org": null,
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": false,
+    "ping_ms": 117,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "fi1.obxodvpn.us",
+    "security": "tls",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": true
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "834a0f901cce98621cd9dce53b92013fce5bc6b2"
+   },
+   "recommended": true,
+   "raw_uri": "hysteria2://146d567c-6335-4e63-a8aa-7ec068642440@fi1.obxodvpn.us:443/?sni=fi1.obxodvpn.us#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20Orem%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, Orem | [BL]",
+    "server": "fi1.obxodvpn.us",
+    "server_port": 443,
+    "type": "hysteria2",
+    "password": "146d567c-6335-4e63-a8aa-7ec068642440",
+    "tls": {
+     "enabled": true,
+     "server_name": "fi1.obxodvpn.us",
+     "alpn": [
+      "h3"
+     ]
+    }
+   }
+  },
+  {
+   "id": "8af5f1a3486a",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": ".𖥔 ݁ ˖ִ🛸༄˖°. | [BL]",
+   "endpoint": {
+    "host": "172.66.0.1",
+    "port": 443,
+    "resolved_ip": "172.66.0.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 7,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-25T22:00:46Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 303,
+    "class": "long_lived",
+    "seen_runs": 9,
+    "stability": 0.158
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "e87150342783cdd6bf7d7bffb58dfadcf82c5073"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoiLvCWpZQg3YEgy5bWtPCfm7jgvITLlsKwLiB8IFtCTF0iLCJhZGQiOiIxNzIuNjYuMC4xIiwicG9ydCI6IjQ0MyIsImlkIjoiMGNmNmQ5NzAtM2YxZC00YWFlLWE5ODktOTJhOGY3NmFlM2RiIiwiYWlkIjoiMCIsInNjeSI6ImF1dG8iLCJuZXQiOiJ3cyIsInR5cGUiOiJub25lIiwidGxzIjoidGxzIiwic25pIjoidm1lc3MubGJ3NjY2LmRwZG5zLm9yZyIsInBhdGgiOiIvd3MiLCJob3N0Ijoidm1lc3MubGJ3NjY2LmRwZG5zLm9yZyIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": ".𖥔 ݁ ˖ִ🛸༄˖°. | [BL]",
+    "server": "172.66.0.1",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws",
+     "headers": {
+      "Host": "vmess.lbw666.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "93ef47c36a1f",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": ".𖥔 ݁ ˖ִ🛸༄˖°. | [BL]",
+   "endpoint": {
+    "host": "cf.090227.xyz",
+    "port": 443,
+    "resolved_ip": "172.67.172.155"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 9,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-15T00:48:43Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 564,
+    "class": "long_lived",
+    "seen_runs": 10,
+    "stability": 0.079
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "9a4bb50a76892f8c04b3c65f0c8ec0f41c631d37"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoiLvCWpZQg3YEgy5bWtPCfm7jgvITLlsKwLiB8IFtCTF0iLCJhZGQiOiJjZi4wOTAyMjcueHl6IiwicG9ydCI6IjQ0MyIsImlkIjoiMGNmNmQ5NzAtM2YxZC00YWFlLWE5ODktOTJhOGY3NmFlM2RiIiwiYWlkIjoiMCIsInNjeSI6ImF1dG8iLCJuZXQiOiJ3cyIsInR5cGUiOiJub25lIiwidGxzIjoidGxzIiwic25pIjoidm1lc3MubGJ3NjY2LmRwZG5zLm9yZyIsInBhdGgiOiIvd3MiLCJob3N0Ijoidm1lc3MubGJ3NjY2LmRwZG5zLm9yZyIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": ".𖥔 ݁ ˖ִ🛸༄˖°. | [BL]",
+    "server": "cf.090227.xyz",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws",
+     "headers": {
+      "Host": "vmess.lbw666.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "5132c0755d1e",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇯🇵 Japan, Osaka (Shiromi) | 🌐 | [BL]",
+   "endpoint": {
+    "host": "162.159.128.17",
+    "port": 443,
+    "resolved_ip": "162.159.128.17"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 7,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "v2ray.ryin.vip",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "36e7e646931ca7db00081be24ed11c0b03db7bc6"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hr/Cfh7UgSmFwYW4sIE9zYWthIChTaGlyb21pKSB8IPCfjJAgfCBbQkxdIiwiYWRkIjoiMTYyLjE1OS4xMjguMTciLCJwb3J0IjoiNDQzIiwiaWQiOiJjOGI0NTVhZC1mZmYxLTQzZTktOWFmOS1kOTc1ODVjNDUzNGEiLCJhaWQiOiIwIiwic2N5IjoiYXV0byIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJob3N0IjoidjJyYXkucnlpbi52aXAiLCJwYXRoIjoiL3J5aW5zb2Nrc3YyYm9hcmQiLCJ0bHMiOiJ0bHMiLCJzbmkiOiJ2MnJheS5yeWluLnZpcCIsImFscG4iOiIiLCJmcCI6IiIsImluc2VjdXJlIjoiMCIsInZjbiI6IiIsInBjcyI6IiJ9",
+   "outbound": {
+    "tag": "🇯🇵 Japan, Osaka (Shiromi) | 🌐 | [BL]",
+    "server": "162.159.128.17",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "c8b455ad-fff1-43e9-9af9-d97585c4534a",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "v2ray.ryin.vip"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ryinsocksv2board",
+     "headers": {
+      "Host": "v2ray.ryin.vip"
+     }
+    }
+   }
+  },
+  {
+   "id": "7ff2836f6a65",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇯🇵 Japan, Ueda | [BL]",
+   "endpoint": {
+    "host": "JP032007.ssgreen.org",
+    "port": 443,
+    "resolved_ip": "172.67.153.201"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 26,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "baeab4d9adfde519a9ab3c0fad5e791d040ac121"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hr/Cfh7UgSmFwYW4sIFVlZGEgfCBbQkxdIiwiYWRkIjoiSlAwMzIwMDcuc3NncmVlbi5vcmciLCJwb3J0IjoiNDQzIiwiaWQiOiJhZGZhNDZjMS01YWM5LTQxY2ItYWVhYS0yNjVkOGI0Yzg2OTciLCJhaWQiOiIwIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiIiLCJwYXRoIjoiL3dlcyIsInRscyI6InRscyIsInNuaSI6IiIsImZwIjoiIiwic2N5IjoiYXV0byIsImFscG4iOiIifQ==",
+   "outbound": {
+    "tag": "🇯🇵 Japan, Ueda | [BL]",
+    "server": "JP032007.ssgreen.org",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "adfa46c1-5ac9-41cb-aeaa-265d8b4c8697",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/wes"
+    }
+   }
+  },
+  {
+   "id": "ea54ecfde103",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇯🇵 Japan, Ueda | [BL]",
+   "endpoint": {
+    "host": "JP032001.ssgreen.org",
+    "port": 443,
+    "resolved_ip": "172.67.153.201"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 9,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "a9a074a160fbe958ef7bef7d6012935522ffbe71"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hr/Cfh7UgSmFwYW4sIFVlZGEgfCBbQkxdIiwiYWRkIjoiSlAwMzIwMDEuc3NncmVlbi5vcmciLCJwb3J0IjoiNDQzIiwiaWQiOiJlZDdjNzg0OS01YjEyLTQ1NmYtOGY1MC01MmQzOTU5ZGMxMmUiLCJhaWQiOiIwIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiIiLCJwYXRoIjoiL3dlcyIsInRscyI6InRscyIsInNuaSI6IiIsImZwIjoiIiwic2N5IjoiYXV0byIsImFscG4iOiIifQ==",
+   "outbound": {
+    "tag": "🇯🇵 Japan, Ueda | [BL]",
+    "server": "JP032001.ssgreen.org",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "ed7c7849-5b12-456f-8f50-52d3959dc12e",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/wes"
+    }
+   }
+  },
+  {
+   "id": "dc91763a714f",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇯🇵 Japan, Ueda | [BL]",
+   "endpoint": {
+    "host": "JP032002.ssgreen.org",
+    "port": 443,
+    "resolved_ip": "172.67.153.201"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 9,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "b979ee5acc724820164ca04a3fed3bf1d5e30a10"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hr/Cfh7UgSmFwYW4sIFVlZGEgfCBbQkxdIiwiYWRkIjoiSlAwMzIwMDIuc3NncmVlbi5vcmciLCJwb3J0IjoiNDQzIiwiaWQiOiI0YTYyMTEwMC1jYjJlLTRkOWUtYTFmYy05NjA3MTVjN2QzNzgiLCJhaWQiOiIwIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiIiLCJwYXRoIjoiL3dlcyIsInRscyI6InRscyIsInNuaSI6IiIsImZwIjoiIiwic2N5IjoiYXV0byIsImFscG4iOiIifQ==",
+   "outbound": {
+    "tag": "🇯🇵 Japan, Ueda | [BL]",
+    "server": "JP032002.ssgreen.org",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "4a621100-cb2e-4d9e-a1fc-960715c7d378",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/wes"
+    }
+   }
+  },
+  {
+   "id": "e6d44c17df07",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇯🇵 Japan, Ueda | [BL]",
+   "endpoint": {
+    "host": "JP032009.ssgreen.org",
+    "port": 443,
+    "resolved_ip": "172.67.153.201"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 20,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "919276f8b4267f2ae33118ce5ef1941eb31736ac"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+Hr/Cfh7UgSmFwYW4sIFVlZGEgfCBbQkxdIiwiYWRkIjoiSlAwMzIwMDkuc3NncmVlbi5vcmciLCJwb3J0IjoiNDQzIiwiaWQiOiIwMGQ0NDMwOS1hYmEwLTRhM2MtYmVlYS1jNTRiMTNjNzA3NzIiLCJhaWQiOiIwIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiIiLCJwYXRoIjoiL3dlcyIsInRscyI6InRscyIsInNuaSI6IiIsImZwIjoiIiwic2N5IjoiYXV0byIsImFscG4iOiIifQ==",
+   "outbound": {
+    "tag": "🇯🇵 Japan, Ueda | [BL]",
+    "server": "JP032009.ssgreen.org",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "00d44309-aba0-4a3c-beea-c54b13c70772",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/wes"
+    }
+   }
+  },
+  {
+   "id": "2e16f9a7587a",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Chicago | [BL]",
+   "endpoint": {
+    "host": "104.21.7.133",
+    "port": 443,
+    "resolved_ip": "104.21.7.133"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 7,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "984ed77f9389bc5ff828aab5db5452083ce70878"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgQ2hpY2FnbyB8IFtCTF0iLCJhZGQiOiIxMDQuMjEuNy4xMzMiLCJwb3J0IjoiNDQzIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJhaWQiOiIwIiwic2N5IjoiYXV0byIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJob3N0Ijoidm1lc3MubGJ3NjY2LmRwZG5zLm9yZyIsInBhdGgiOiIvd3M/ZWQ9MjA0OCIsInRscyI6InRscyIsInNuaSI6IiIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": "🇺🇸 United States, Chicago | [BL]",
+    "server": "104.21.7.133",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws?ed=2048",
+     "headers": {
+      "Host": "vmess.lbw666.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "98cc9b4ef5fb",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Chicago | [BL]",
+   "endpoint": {
+    "host": "172.66.203.67",
+    "port": 443,
+    "resolved_ip": "172.66.203.67"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 7,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-15T00:48:43Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 564,
+    "class": "long_lived",
+    "seen_runs": 10,
+    "stability": 0.079
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "784c7432091519fd9f0eb970dcba26db35c594bb"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgQ2hpY2FnbyB8IFtCTF0iLCJhZGQiOiIxNzIuNjYuMjAzLjY3IiwicG9ydCI6IjQ0MyIsImlkIjoiMGNmNmQ5NzAtM2YxZC00YWFlLWE5ODktOTJhOGY3NmFlM2RiIiwiYWlkIjoiMCIsInNjeSI6ImF1dG8iLCJuZXQiOiJ3cyIsInR5cGUiOiJ2bWVzcyIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwicGF0aCI6Ii93cyIsInRscyI6InRscyIsInNuaSI6IiIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": "🇺🇸 United States, Chicago | [BL]",
+    "server": "172.66.203.67",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws",
+     "headers": {
+      "Host": "vmess.lbw666.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "92848a86a8cc",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Chicago | [BL]",
+   "endpoint": {
+    "host": "cf.877771.xyz",
+    "port": 443,
+    "resolved_ip": "104.21.80.180"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 56,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-15T00:48:43Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 564,
+    "class": "long_lived",
+    "seen_runs": 10,
+    "stability": 0.079
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "089095a604a18227acd400ef68cfa68c1555cd7d"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgQ2hpY2FnbyB8IFtCTF0iLCJhZGQiOiJjZi44Nzc3NzEueHl6IiwicG9ydCI6IjQ0MyIsInR5cGUiOiJub25lIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJhaWQiOiIwIiwibmV0Ijoid3MiLCJwYXRoIjoiL3dzP2VkPTIwNDgiLCJob3N0Ijoidm1lc3MubGJ3NjY2LmRwZG5zLm9yZyIsInRscyI6InRscyIsInNjeSI6ImF1dG8iLCJzbmkiOiIiLCJhbHBuIjoiIiwiZnAiOiIifQ==",
+   "outbound": {
+    "tag": "🇺🇸 United States, Chicago | [BL]",
+    "server": "cf.877771.xyz",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws?ed=2048",
+     "headers": {
+      "Host": "vmess.lbw666.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "863b153061e3",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Chicago | [BL]",
+   "endpoint": {
+    "host": "cf.0sm.com",
+    "port": 443,
+    "resolved_ip": "172.67.187.145"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 56,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-15T00:48:43Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 564,
+    "class": "long_lived",
+    "seen_runs": 10,
+    "stability": 0.079
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "face75db9597546f7242ef22bc56af46eca5ade8"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgQ2hpY2FnbyB8IFtCTF0iLCJhZGQiOiJjZi4wc20uY29tIiwicG9ydCI6IjQ0MyIsImlkIjoiMGNmNmQ5NzAtM2YxZC00YWFlLWE5ODktOTJhOGY3NmFlM2RiIiwiYWlkIjoiMCIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJ0bHMiOiJ0bHMiLCJzbmkiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwicGF0aCI6Ii93cyIsImhvc3QiOiIiLCJzY3kiOiJhdXRvIiwiYWxwbiI6IiIsImZwIjoiIn0=",
+   "outbound": {
+    "tag": "🇺🇸 United States, Chicago | [BL]",
+    "server": "cf.0sm.com",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws"
+    }
+   }
+  },
+  {
+   "id": "dc052bcddf5f",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Chicago | 🌐 | [BL]",
+   "endpoint": {
+    "host": "104.27.0.1",
+    "port": 443,
+    "resolved_ip": "104.27.0.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "34baff4f53b1f3dff7b55fa45ba990ed569cb02c"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiIxMDQuMjcuMC4xIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJpbnNlY3VyZSI6IjAiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3MiLCJwY3MiOiIiLCJwb3J0IjoiNDQzIiwicHMiOiLwn4e68J+HuCBVbml0ZWQgU3RhdGVzLCBDaGljYWdvIHwg8J+MkCB8IFtCTF0iLCJzY3kiOiJhdXRvIiwic25pIjoiIiwidGxzIjoidGxzIiwidHlwZSI6ImF1dG8iLCJ2IjoiMiIsInZjbiI6IiJ9",
+   "outbound": {
+    "tag": "🇺🇸 United States, Chicago | 🌐 | [BL]",
+    "server": "104.27.0.1",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws",
+     "headers": {
+      "Host": "vmess.lbw666.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "83dd77ad902c",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Chicago | 🌐 | [BL]",
+   "endpoint": {
+    "host": "104.17.136.198",
+    "port": 443,
+    "resolved_ip": "104.17.136.198"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-25T22:00:46Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 303,
+    "class": "long_lived",
+    "seen_runs": 9,
+    "stability": 0.158
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "8d5f2c0d3e568b70883db4d3f307bbb47f2c710f"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiIxMDQuMTcuMTM2LjE5OCIsImFpZCI6IjAiLCJob3N0Ijoidm1lc3MubGJ3NjY2LmRwZG5zLm9yZyIsImlkIjoiMGNmNmQ5NzAtM2YxZC00YWFlLWE5ODktOTJhOGY3NmFlM2RiIiwibmV0Ijoid3MiLCJwYXRoIjoiL3dzIiwicG9ydCI6IjQ0MyIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgQ2hpY2FnbyB8IPCfjJAgfCBbQkxdIiwic2N5IjoiYXV0byIsInNuaSI6InZtZXNzLmxidzY2Ni5kcGRucy5vcmciLCJ0bHMiOiJ0bHMiLCJ0eXBlIjoiLS0tIiwidiI6IjIiLCJhbHBuIjoiIiwiZnAiOiIifQ==",
+   "outbound": {
+    "tag": "🇺🇸 United States, Chicago | 🌐 | [BL]",
+    "server": "104.17.136.198",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws",
+     "headers": {
+      "Host": "vmess.lbw666.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "8e3953024b15",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Chicago | 🌐 | [BL]",
+   "endpoint": {
+    "host": "172.64.229.21",
+    "port": 443,
+    "resolved_ip": "172.64.229.21"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-15T00:48:43Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 564,
+    "class": "long_lived",
+    "seen_runs": 10,
+    "stability": 0.079
+   },
+   "classification": {
+    "sni": "vmess.lbw666.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "9c5609aec873529a29af83c45a3710722bd6fa29"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiIxNzIuNjQuMjI5LjIxIiwiYWlkIjoiMCIsImhvc3QiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwiaWQiOiIwY2Y2ZDk3MC0zZjFkLTRhYWUtYTk4OS05MmE4Zjc2YWUzZGIiLCJuZXQiOiJ3cyIsInBhdGgiOiIvd3MiLCJwb3J0IjoiNDQzIiwicHMiOiLwn4e68J+HuCBVbml0ZWQgU3RhdGVzLCBDaGljYWdvIHwg8J+MkCB8IFtCTF0iLCJzbmkiOiJ2bWVzcy5sYnc2NjYuZHBkbnMub3JnIiwidGxzIjoidGxzIiwidHlwZSI6Im5vbmUiLCJ2IjoiMiIsInNjeSI6ImF1dG8iLCJhbHBuIjoiIiwiZnAiOiIifQ==",
+   "outbound": {
+    "tag": "🇺🇸 United States, Chicago | 🌐 | [BL]",
+    "server": "172.64.229.21",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "0cf6d970-3f1d-4aae-a989-92a8f76ae3db",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "vmess.lbw666.dpdns.org"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws",
+     "headers": {
+      "Host": "vmess.lbw666.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "a9068112eace",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Hillsboro | [BL]",
+   "endpoint": {
+    "host": "US032012.westmgreen.com",
+    "port": 443,
+    "resolved_ip": "104.21.75.194"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 9,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "d1273187c4895b878cdf6f0cb815d308a25dd9b5"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgSGlsbHNib3JvIHwgW0JMXSIsImFkZCI6IlVTMDMyMDEyLndlc3RtZ3JlZW4uY29tIiwicG9ydCI6IjQ0MyIsImlkIjoiYzZmZTc2MDEtYzI1NC00YTFjLWI2MDctMTNjNDJjODhmMzE5IiwiYWlkIjoiMCIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJob3N0IjoiIiwicGF0aCI6Ii93ZXMiLCJ0bHMiOiJ0bHMiLCJzbmkiOiIiLCJmcCI6IiIsInNjeSI6ImF1dG8iLCJhbHBuIjoiIn0=",
+   "outbound": {
+    "tag": "🇺🇸 United States, Hillsboro | [BL]",
+    "server": "US032012.westmgreen.com",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "c6fe7601-c254-4a1c-b607-13c42c88f319",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/wes"
+    }
+   }
+  },
+  {
+   "id": "b4e252593fb2",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Hillsboro | [BL]",
+   "endpoint": {
+    "host": "US122205.ssgreen.org",
+    "port": 443,
+    "resolved_ip": "172.67.153.201"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 19,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "2cb12ccf82ccdd9a6b6a759380fc82aa2dacf344"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgSGlsbHNib3JvIHwgW0JMXSIsImFkZCI6IlVTMTIyMjA1LnNzZ3JlZW4ub3JnIiwicG9ydCI6IjQ0MyIsImlkIjoiZmI0OWM1OTQtZmNiZi00NzMzLWJkOWEtMmY0NGJiOTBlYjJjIiwiYWlkIjoiMCIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJob3N0IjoiIiwicGF0aCI6Ii93ZXMiLCJ0bHMiOiJ0bHMiLCJzbmkiOiIiLCJmcCI6IiIsInNjeSI6ImF1dG8iLCJhbHBuIjoiIn0=",
+   "outbound": {
+    "tag": "🇺🇸 United States, Hillsboro | [BL]",
+    "server": "US122205.ssgreen.org",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "fb49c594-fcbf-4733-bd9a-2f44bb90eb2c",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/wes"
+    }
+   }
+  },
+  {
+   "id": "672067c190b3",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Hillsboro | [BL]",
+   "endpoint": {
+    "host": "US122208.ssgreen.org",
+    "port": 443,
+    "resolved_ip": "172.67.153.201"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 55,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "a61f531eecd6485d40e400fd1700b820b85c3db7"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgSGlsbHNib3JvIHwgW0JMXSIsImFkZCI6IlVTMTIyMjA4LnNzZ3JlZW4ub3JnIiwicG9ydCI6IjQ0MyIsImlkIjoiMTlmNzEzODQtNDUyYi00NzY1LTg0M2ItY2JiZWE3MTZkYTBmIiwiYWlkIjoiMCIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJob3N0IjoiIiwicGF0aCI6Ii93ZXMiLCJ0bHMiOiJ0bHMiLCJzbmkiOiIiLCJmcCI6IiIsInNjeSI6ImF1dG8iLCJhbHBuIjoiIn0=",
+   "outbound": {
+    "tag": "🇺🇸 United States, Hillsboro | [BL]",
+    "server": "US122208.ssgreen.org",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "19f71384-452b-4765-843b-cbbea716da0f",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/wes"
+    }
+   }
+  },
+  {
+   "id": "af257e9205db",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, Reston | [BL]",
+   "endpoint": {
+    "host": "US122202.ssgreen.org",
+    "port": 443,
+    "resolved_ip": "104.21.80.204"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 8,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "b28a8a11525a1ebfd10eeeb216e019cf60a6671c"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgUmVzdG9uIHwgW0JMXSIsImFkZCI6IlVTMTIyMjAyLnNzZ3JlZW4ub3JnIiwicG9ydCI6IjQ0MyIsImlkIjoiMjI0YjQ2NTctYTA3Ni00MjQ1LWFkNzMtOWI3ZTI2MGZiMmVjIiwiYWlkIjoiMCIsIm5ldCI6IndzIiwidHlwZSI6Im5vbmUiLCJob3N0IjoiIiwicGF0aCI6Ii93ZXMiLCJ0bHMiOiJ0bHMiLCJzbmkiOiIiLCJmcCI6IiIsInNjeSI6ImF1dG8iLCJhbHBuIjoiIn0=",
+   "outbound": {
+    "tag": "🇺🇸 United States, Reston | [BL]",
+    "server": "US122202.ssgreen.org",
+    "server_port": 443,
+    "type": "vmess",
+    "uuid": "224b4657-a076-4245-ad73-9b7e260fb2ec",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/wes"
+    }
+   }
+  },
+  {
+   "id": "916bea468f45",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, St Louis (Downtown) | [BL]",
+   "endpoint": {
+    "host": "172.67.161.144",
+    "port": 8443,
+    "resolved_ip": "172.67.161.144"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-15T00:48:43Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 564,
+    "class": "long_lived",
+    "seen_runs": 8,
+    "stability": 0.063
+   },
+   "classification": {
+    "sni": "v2ray1.dozapp.xyz",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "35424e06dfd00f1cce7c095e9a96c03a92c60eff"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+HuvCfh7ggVW5pdGVkIFN0YXRlcywgU3QgTG91aXMgKERvd250b3duKSB8IFtCTF0iLCJhZGQiOiIxNzIuNjcuMTYxLjE0NCIsInBvcnQiOiI4NDQzIiwiaWQiOiI2MDQ0MTU0OC1iNjhlLTQzYjItODE5MS1lM2I4ODRiZTRiM2MiLCJhaWQiOiIwIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsInRscyI6InRscyIsInNuaSI6InYycmF5MS5kb3phcHAueHl6IiwicGF0aCI6Ii9sTW5zWlVONC8iLCJob3N0IjoiIiwic2N5IjoiYXV0byIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": "🇺🇸 United States, St Louis (Downtown) | [BL]",
+    "server": "172.67.161.144",
+    "server_port": 8443,
+    "type": "vmess",
+    "uuid": "60441548-b68e-43b2-8191-e3b884be4b3c",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "v2ray1.dozapp.xyz"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/lMnsZUN4/"
+    }
+   }
+  },
+  {
+   "id": "87346de526d5",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, St Louis (Downtown) | [BL]",
+   "endpoint": {
+    "host": "188.114.96.3",
+    "port": 8443,
+    "resolved_ip": "188.114.96.3"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "v2ray1.dozapp.xyz",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "df980ab0ca01fd2db3ad995ee970d3be97c175a8"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiIxODguMTE0Ljk2LjMiLCJhaWQiOiIwIiwiaG9zdCI6InYycmF5MS5kb3phcHAueHl6IiwiaWQiOiI2MDQ0MTU0OC1iNjhlLTQzYjItODE5MS1lM2I4ODRiZTRiM2MiLCJuZXQiOiJ3cyIsInBhdGgiOiIvbE1uc1pVTjQvIiwicG9ydCI6Ijg0NDMiLCJwcyI6IvCfh7rwn4e4IFVuaXRlZCBTdGF0ZXMsIFN0IExvdWlzIChEb3dudG93bikgfCBbQkxdIiwic2N5IjoiYXV0byIsInNuaSI6IiIsInRscyI6InRscyIsInR5cGUiOiJub25lIiwidiI6IjIiLCJhbHBuIjoiIiwiZnAiOiIifQ==",
+   "outbound": {
+    "tag": "🇺🇸 United States, St Louis (Downtown) | [BL]",
+    "server": "188.114.96.3",
+    "server_port": 8443,
+    "type": "vmess",
+    "uuid": "60441548-b68e-43b2-8191-e3b884be4b3c",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "v2ray1.dozapp.xyz"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/lMnsZUN4/",
+     "headers": {
+      "Host": "v2ray1.dozapp.xyz"
+     }
+    }
+   }
+  },
+  {
+   "id": "1aa0c61ae963",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+   "endpoint": {
+    "host": "162.159.130.234",
+    "port": 2083,
+    "resolved_ip": "162.159.130.234"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 5,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "cdn.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "dfbbf18355b2f3c4aee8bbfa1ae3182826d6f9d3"
+   },
+   "recommended": true,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+MkCBBbnljYXN0LUlQIHwg8J+Hr/Cfh7UgfCBbQkxdIiwiYWRkIjoiMTYyLjE1OS4xMzAuMjM0IiwicG9ydCI6IjIwODMiLCJpZCI6ImFjMjUxMjM3LTU3NmYtNDBjOC1hNTQzLTU1NDk2MGM5NThiMSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsInRscyI6InRscyIsInNuaSI6ImNkbi5zZmFjZy51ayIsInBhdGgiOiIvb3IzIiwiaG9zdCI6Im9yMy5zZmFjZy51ayIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+    "server": "162.159.130.234",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "cdn.sfacg.uk"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3",
+     "headers": {
+      "Host": "or3.sfacg.uk"
+     }
+    }
+   }
+  },
+  {
+   "id": "7fe12944e422",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+   "endpoint": {
+    "host": "162.159.135.234",
+    "port": 2083,
+    "resolved_ip": "162.159.135.234"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 5,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-26T00:24:16Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 301,
+    "class": "long_lived",
+    "seen_runs": 3,
+    "stability": 0.054
+   },
+   "classification": {
+    "sni": "or3.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "066a0664eca225c02c48199cd359ca68c783bba7"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+MkCBBbnljYXN0LUlQIHwg8J+Hr/Cfh7UgfCBbQkxdIiwiYWRkIjoiMTYyLjE1OS4xMzUuMjM0IiwicG9ydCI6IjIwODMiLCJpZCI6ImFjMjUxMjM3LTU3NmYtNDBjOC1hNTQzLTU1NDk2MGM5NThiMSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiJvcjMuc2ZhY2cudWsiLCJwYXRoIjoiL29yMyIsInRscyI6InRscyIsInNuaSI6IiIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+    "server": "162.159.135.234",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "or3.sfacg.uk"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3",
+     "headers": {
+      "Host": "or3.sfacg.uk"
+     }
+    }
+   }
+  },
+  {
+   "id": "86c0bf48e3e8",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+   "endpoint": {
+    "host": "cdn.sfacg.uk",
+    "port": 2083,
+    "resolved_ip": "162.159.135.234"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 89,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-07T23:46:06Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 733,
+    "class": "long_lived",
+    "seen_runs": 17,
+    "stability": 0.106
+   },
+   "classification": {
+    "sni": "or3.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "b418cdc3c753e09d7c271a92c390cae5441dde55"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJ2IjoiMiIsInBzIjoi8J+MkCBBbnljYXN0LUlQIHwg8J+Hr/Cfh7UgfCBbQkxdIiwiYWRkIjoiY2RuLnNmYWNnLnVrIiwicG9ydCI6IjIwODMiLCJpZCI6ImFjMjUxMjM3LTU3NmYtNDBjOC1hNTQzLTU1NDk2MGM5NThiMSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsInRscyI6InRscyIsInNuaSI6Im9yMy5zZmFjZy51ayIsInBhdGgiOiIvb3IzIiwiaG9zdCI6Im9yMy5zZmFjZy51ayIsInNraXAtY2VydC12ZXJpZnkiOnRydWUsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+    "server": "cdn.sfacg.uk",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "or3.sfacg.uk"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3",
+     "headers": {
+      "Host": "or3.sfacg.uk"
+     }
+    }
+   }
+  },
+  {
+   "id": "445b20cb1459",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+   "endpoint": {
+    "host": "104.21.0.1",
+    "port": 2083,
+    "resolved_ip": "104.21.0.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 18,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-26T00:24:16Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 301,
+    "class": "long_lived",
+    "seen_runs": 3,
+    "stability": 0.054
+   },
+   "classification": {
+    "sni": "or3.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "4e5880322fa3e29ad7f69c865134b080cb7dd7cb"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiIxMDQuMjEuMC4xIiwiYWlkIjoiMCIsImFscG4iOiIiLCJmcCI6IiIsImhvc3QiOiIiLCJpZCI6ImFjMjUxMjM3LTU3NmYtNDBjOC1hNTQzLTU1NDk2MGM5NThiMSIsIm5ldCI6IndzIiwicGF0aCI6Ii9vcjMiLCJwb3J0IjoiMjA4MyIsInBzIjoi8J+MkCBBbnljYXN0LUlQIHwg8J+Hr/Cfh7UgfCBbQkxdIiwic2N5IjoiYXV0byIsInNuaSI6Im9yMy5zZmFjZy51ayIsInRscyI6InRscyIsInR5cGUiOiJub25lIiwidiI6IjIifQ==",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+    "server": "104.21.0.1",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "or3.sfacg.uk"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3"
+    }
+   }
+  },
+  {
+   "id": "0de3c2cbb888",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+   "endpoint": {
+    "host": "104.17.0.1",
+    "port": 2083,
+    "resolved_ip": "104.17.0.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 5,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T00:58:08Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 36,
+    "class": "short_lived",
+    "seen_runs": 3,
+    "stability": 0.429
+   },
+   "classification": {
+    "sni": "or3.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "0b0cd758dd6b71a0d2e4cd748568adf271d44f2a"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiIxMDQuMTcuMC4xIiwiYWlkIjoiMCIsImhvc3QiOiJvcjMuc2ZhY2cudWsiLCJpZCI6ImFjMjUxMjM3LTU3NmYtNDBjOC1hNTQzLTU1NDk2MGM5NThiMSIsIm5ldCI6IndzIiwicGF0aCI6Ii9vcjMiLCJwb3J0IjoiMjA4MyIsInBzIjoi8J+MkCBBbnljYXN0LUlQIHwg8J+Hr/Cfh7UgfCBbQkxdIiwidGxzIjoidGxzIiwidHlwZSI6Im5vbmUiLCJ2IjoiMiIsInNjeSI6ImF1dG8iLCJzbmkiOiIiLCJhbHBuIjoiIiwiZnAiOiIifQ==",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+    "server": "104.17.0.1",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "or3.sfacg.uk"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3",
+     "headers": {
+      "Host": "or3.sfacg.uk"
+     }
+    }
+   }
+  },
+  {
+   "id": "eccb6aa0e726",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+   "endpoint": {
+    "host": "162.159.130.234",
+    "port": 2083,
+    "resolved_ip": "162.159.130.234"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 5,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-07T23:46:06Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 733,
+    "class": "long_lived",
+    "seen_runs": 12,
+    "stability": 0.075
+   },
+   "classification": {
+    "sni": "or3.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "e17830da1100d0dd2230b9b4556825f3f40cd2ba"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiIxNjIuMTU5LjEzMC4yMzQiLCJhaWQiOiIwIiwiaG9zdCI6Im9yMy5zZmFjZy51ayIsImlkIjoiYWMyNTEyMzctNTc2Zi00MGM4LWE1NDMtNTU0OTYwYzk1OGIxIiwibmV0Ijoid3MiLCJwYXRoIjoiL29yMyIsInBvcnQiOiIyMDgzIiwicHMiOiLwn4yQIEFueWNhc3QtSVAgfCDwn4ev8J+HtSB8IFtCTF0iLCJzbmkiOiJvcjMuc2ZhY2cudWsiLCJ0bHMiOiJ0bHMiLCJ0eXBlIjoibm9uZSIsInYiOiIyIiwic2N5IjoiYXV0byIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+    "server": "162.159.130.234",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "or3.sfacg.uk"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3",
+     "headers": {
+      "Host": "or3.sfacg.uk"
+     }
+    }
+   }
+  },
+  {
+   "id": "5d8c5b7aa15a",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+   "endpoint": {
+    "host": "cdn.sfacg.uk",
+    "port": 2083,
+    "resolved_ip": "162.159.135.234"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 89,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-07T23:46:06Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 733,
+    "class": "long_lived",
+    "seen_runs": 13,
+    "stability": 0.081
+   },
+   "classification": {
+    "sni": "cdn.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "b1ec5af707caf71819015354a2ff8c708869a941"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiJjZG4uc2ZhY2cudWsiLCJhaWQiOiIwIiwiYWxwbiI6IiIsImNzIjoiIiwiZGlhbE1vZGUiOiIiLCJmcCI6ImNocm9tZSIsImhvc3QiOiJvcjMuc2ZhY2cudWsiLCJpZCI6ImFjMjUxMjM3LTU3NmYtNDBjOC1hNTQzLTU1NDk2MGM5NThiMSIsImluc2VjdXJlIjoiMCIsIm5ldCI6IndzIiwicGF0aCI6Ii9vcjMiLCJwY3MiOiIiLCJwb3J0IjoiMjA4MyIsInBzIjoi8J+MkCBBbnljYXN0LUlQIHwg8J+Hr/Cfh7UgfCBbQkxdIiwic2N5IjoiYXV0byIsInNuaSI6ImNkbi5zZmFjZy51ayIsInRscyI6InRscyIsInR5cGUiOiJub25lIiwidiI6IjIiLCJ2Y24iOiIifQ==",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+    "server": "cdn.sfacg.uk",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "cdn.sfacg.uk",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3",
+     "headers": {
+      "Host": "or3.sfacg.uk"
+     }
+    }
+   }
+  },
+  {
+   "id": "0965bec0dc52",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+   "endpoint": {
+    "host": "or3.sfacg.uk",
+    "port": 2083,
+    "resolved_ip": "104.21.50.177"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 7,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-15T00:48:43Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 564,
+    "class": "long_lived",
+    "seen_runs": 5,
+    "stability": 0.039
+   },
+   "classification": {
+    "sni": "or3.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "e49828277c3eac2a440eb2fa7d18ab0b2c6f55de"
+   },
+   "recommended": false,
+   "raw_uri": "vmess://eyJhZGQiOiJvcjMuc2ZhY2cudWsiLCJhaWQiOiIwIiwiaG9zdCI6Im9yMy5zZmFjZy51ayIsImlkIjoiYWMyNTEyMzctNTc2Zi00MGM4LWE1NDMtNTU0OTYwYzk1OGIxIiwibmV0Ijoid3MiLCJwYXRoIjoiL29yMyIsInBvcnQiOiIyMDgzIiwicHMiOiLwn4yQIEFueWNhc3QtSVAgfCDwn4ev8J+HtSB8IFtCTF0iLCJzbmkiOiJvcjMuc2ZhY2cudWsiLCJ0bHMiOiJ0bHMiLCJ0eXBlIjoibm9uZSIsInYiOiIyIiwic2N5IjoiYXV0byIsImFscG4iOiIiLCJmcCI6IiJ9",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇯🇵 | [BL]",
+    "server": "or3.sfacg.uk",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "or3.sfacg.uk"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3",
+     "headers": {
+      "Host": "or3.sfacg.uk"
+     }
+    }
+   }
+  },
+  {
+   "id": "fac2e8792b42",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🇫🇮 Finland, Helsinki | [BL]",
+   "endpoint": {
+    "host": "104.16.186.130",
+    "port": 2053,
+    "resolved_ip": "104.16.186.130"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 5,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "marvdasht.phonecomparisonblog.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "78b3841a65c3a8a85213144e3cfdcf39e60119bc"
+   },
+   "recommended": false,
+   "raw_uri": "trojan://gHQP0D7D15@104.16.186.130:2053?path=%2F&security=tls&fm=%7B%22tcp%22%3A%20%5B%7B%22type%22%3A%20%22fragment%22%2C%20%22settings%22%3A%20%7B%22packets%22%3A%20%22tlshello%22%2C%20%22lengths%22%3A%20%5B%220%22%2C%20%22104%22%2C%20%221%22%5D%2C%20%22delays%22%3A%20%5B%220%22%5D%2C%20%22maxSplit%22%3A%20%220%22%7D%7D%2C%7B%22type%22%3A%20%22fragment%22%2C%20%22settings%22%3A%20%7B%22packets%22%3A%20%221-1%22%2C%20%22lengths%22%3A%20%5B%22114%22%2C%20%221%22%5D%2C%20%22delays%22%3A%20%5B%221%22%5D%2C%20%22maxSplit%22%3A%20%2211%22%7D%7D%5D%7D&insecure=0&host=marvdasht.phonecomparisonblog.org&fp=unsafe&type=ws&allowInsecure=0&sni=marvdasht.phonecomparisonblog.org#%F0%9F%87%AB%F0%9F%87%AE%20Finland%2C%20Helsinki%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇮 Finland, Helsinki | [BL]",
+    "server": "104.16.186.130",
+    "server_port": 2053,
+    "type": "trojan",
+    "password": "gHQP0D7D15",
+    "tls": {
+     "enabled": true,
+     "server_name": "marvdasht.phonecomparisonblog.org",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "unsafe"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/",
+     "headers": {
+      "Host": "marvdasht.phonecomparisonblog.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "23f1e68750ca",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🇫🇮 Finland, Helsinki | [BL]",
+   "endpoint": {
+    "host": "104.18.0.1",
+    "port": 2053,
+    "resolved_ip": "104.18.0.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 17,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "marvdasht.phonecomparisonblog.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "19b7112ec30b50edee63102da06853a6b81cdf85"
+   },
+   "recommended": false,
+   "raw_uri": "trojan://gHQP0D7D15@104.18.0.1:2053?alpn=http%2F1.1&host=marvdasht.phonecomparisonblog.org&insecure=0&path=%2F&security=tls&sni=marvdasht.phonecomparisonblog.org&type=ws#%F0%9F%87%AB%F0%9F%87%AE%20Finland%2C%20Helsinki%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇮 Finland, Helsinki | [BL]",
+    "server": "104.18.0.1",
+    "server_port": 2053,
+    "type": "trojan",
+    "password": "gHQP0D7D15",
+    "tls": {
+     "enabled": true,
+     "server_name": "marvdasht.phonecomparisonblog.org",
+     "alpn": [
+      "http/1.1"
+     ]
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/",
+     "headers": {
+      "Host": "marvdasht.phonecomparisonblog.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "773109d93be5",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🇫🇮 Finland, Helsinki | [BL]",
+   "endpoint": {
+    "host": "104.24.0.1",
+    "port": 2053,
+    "resolved_ip": "104.24.0.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 5,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "marvdasht.phonecomparisonblog.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "cf814453a048bad1ddc65da9dcd7671a62caf5a6"
+   },
+   "recommended": false,
+   "raw_uri": "trojan://gHQP0D7D15@104.24.0.1:2053?alpn=http%2F1.1&host=marvdasht.phonecomparisonblog.org&path=%2F&security=tls&sni=marvdasht.phonecomparisonblog.org&type=ws#%F0%9F%87%AB%F0%9F%87%AE%20Finland%2C%20Helsinki%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇮 Finland, Helsinki | [BL]",
+    "server": "104.24.0.1",
+    "server_port": 2053,
+    "type": "trojan",
+    "password": "gHQP0D7D15",
+    "tls": {
+     "enabled": true,
+     "server_name": "marvdasht.phonecomparisonblog.org",
+     "alpn": [
+      "http/1.1"
+     ]
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/",
+     "headers": {
+      "Host": "marvdasht.phonecomparisonblog.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "e72ac6d7af61",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🇫🇮 Finland, Helsinki | [BL]",
+   "endpoint": {
+    "host": "104.25.239.113",
+    "port": 2053,
+    "resolved_ip": "104.25.239.113"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 4,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "marvdasht.phonecomparisonblog.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "2a033a4dd186217039d103201398408daae1af6f"
+   },
+   "recommended": false,
+   "raw_uri": "trojan://gHQP0D7D15@104.25.239.113:2053?host=marvdasht.phonecomparisonblog.org&path=%2F&security=tls&sni=marvdasht.phonecomparisonblog.org&type=ws&fp=chrome#%F0%9F%87%AB%F0%9F%87%AE%20Finland%2C%20Helsinki%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇮 Finland, Helsinki | [BL]",
+    "server": "104.25.239.113",
+    "server_port": 2053,
+    "type": "trojan",
+    "password": "gHQP0D7D15",
+    "tls": {
+     "enabled": true,
+     "server_name": "marvdasht.phonecomparisonblog.org",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/",
+     "headers": {
+      "Host": "marvdasht.phonecomparisonblog.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "0bda38675221",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🇫🇮 Finland, Helsinki | [BL]",
+   "endpoint": {
+    "host": "104.27.0.1",
+    "port": 2053,
+    "resolved_ip": "104.27.0.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 17,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "marvdasht.phonecomparisonblog.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "f3088d0b08a141bb347bbe4f741227a073043757"
+   },
+   "recommended": false,
+   "raw_uri": "trojan://gHQP0D7D15@104.27.0.1:2053?alpn=http%2F1.1&host=marvdasht.phonecomparisonblog.org&insecure=0&path=%2F&security=tls&sni=marvdasht.phonecomparisonblog.org&type=ws&fp=ios#%F0%9F%87%AB%F0%9F%87%AE%20Finland%2C%20Helsinki%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇮 Finland, Helsinki | [BL]",
+    "server": "104.27.0.1",
+    "server_port": 2053,
+    "type": "trojan",
+    "password": "gHQP0D7D15",
+    "tls": {
+     "enabled": true,
+     "server_name": "marvdasht.phonecomparisonblog.org",
+     "alpn": [
+      "http/1.1"
+     ],
+     "utls": {
+      "enabled": true,
+      "fingerprint": "ios"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/",
+     "headers": {
+      "Host": "marvdasht.phonecomparisonblog.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "c21d4bcab116",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🇫🇮 Finland, Helsinki | [BL]",
+   "endpoint": {
+    "host": "172.66.0.1",
+    "port": 2053,
+    "resolved_ip": "172.66.0.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 4,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "marvdasht.phonecomparisonblog.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "3e83974bfe7c44458192137891b75c77a4ec8ace"
+   },
+   "recommended": false,
+   "raw_uri": "trojan://gHQP0D7D15@172.66.0.1:2053?alpn=http%2F1.1&host=marvdasht.phonecomparisonblog.org&insecure=0&path=%2F&security=tls&sni=marvdasht.phonecomparisonblog.org&type=ws#%F0%9F%87%AB%F0%9F%87%AE%20Finland%2C%20Helsinki%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇮 Finland, Helsinki | [BL]",
+    "server": "172.66.0.1",
+    "server_port": 2053,
+    "type": "trojan",
+    "password": "gHQP0D7D15",
+    "tls": {
+     "enabled": true,
+     "server_name": "marvdasht.phonecomparisonblog.org",
+     "alpn": [
+      "http/1.1"
+     ]
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/",
+     "headers": {
+      "Host": "marvdasht.phonecomparisonblog.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "3ff55abaa0de",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🇫🇮 Finland, Helsinki | [BL]",
+   "endpoint": {
+    "host": "172.67.118.45",
+    "port": 2053,
+    "resolved_ip": "172.67.118.45"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 4,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T00:57:21Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 12,
+    "class": "fresh",
+    "seen_runs": 3,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "marvdasht.phonecomparisonblog.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "3edc9d640d9db93182d060ce61e5dd7151f1cb23"
+   },
+   "recommended": true,
+   "raw_uri": "trojan://gHQP0D7D15@172.67.118.45:2053?host=marvdasht.phonecomparisonblog.org&path=%2F&security=tls&sni=marvdasht.phonecomparisonblog.org&type=ws&fp=ios#%F0%9F%87%AB%F0%9F%87%AE%20Finland%2C%20Helsinki%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇮 Finland, Helsinki | [BL]",
+    "server": "172.67.118.45",
+    "server_port": 2053,
+    "type": "trojan",
+    "password": "gHQP0D7D15",
+    "tls": {
+     "enabled": true,
+     "server_name": "marvdasht.phonecomparisonblog.org",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "ios"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/",
+     "headers": {
+      "Host": "marvdasht.phonecomparisonblog.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "83ca44ea056a",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🇫🇮 Finland, Helsinki | [BL]",
+   "endpoint": {
+    "host": "188.114.96.3",
+    "port": 2053,
+    "resolved_ip": "188.114.96.3"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 17,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "marvdasht.phonecomparisonblog.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "35415fcd5b659273eddc86075bdd8e2951fe405a"
+   },
+   "recommended": false,
+   "raw_uri": "trojan://gHQP0D7D15@188.114.96.3:2053?alpn=http%2F1.1&host=marvdasht.phonecomparisonblog.org&path=%2F&security=tls&sni=marvdasht.phonecomparisonblog.org&type=ws#%F0%9F%87%AB%F0%9F%87%AE%20Finland%2C%20Helsinki%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇮 Finland, Helsinki | [BL]",
+    "server": "188.114.96.3",
+    "server_port": 2053,
+    "type": "trojan",
+    "password": "gHQP0D7D15",
+    "tls": {
+     "enabled": true,
+     "server_name": "marvdasht.phonecomparisonblog.org",
+     "alpn": [
+      "http/1.1"
+     ]
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/",
+     "headers": {
+      "Host": "marvdasht.phonecomparisonblog.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "b1c71e65f2b3",
+   "protocol": "trojan",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇨🇦 🇩🇪 🇫🇮 | [BL]",
+   "endpoint": {
+    "host": "172.64.80.1",
+    "port": 443,
+    "resolved_ip": "172.64.80.1"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 16,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 2,
+    "stability": 0.333
+   },
+   "classification": {
+    "sni": "vless.herogoing.top",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_SS+All_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "1677a41fcbe8ef00cfe94f57090fd6a527aacca4"
+   },
+   "recommended": false,
+   "raw_uri": "trojan://bpb-trojan@172.64.80.1:443?security=tls&sni=vless.herogoing.top&type=ws&path=/tr?ed=2560&Host=vless.herogoing.top#%F0%9F%8C%90%20Anycast-IP%20%7C%20%F0%9F%87%A8%F0%9F%87%A6%20%F0%9F%87%A9%F0%9F%87%AA%20%F0%9F%87%AB%F0%9F%87%AE%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇨🇦 🇩🇪 🇫🇮 | [BL]",
+    "server": "172.64.80.1",
+    "server_port": 443,
+    "type": "trojan",
+    "password": "bpb-trojan",
+    "tls": {
+     "enabled": true,
+     "server_name": "vless.herogoing.top"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/tr?ed=2560"
+    }
+   }
+  },
+  {
+   "id": "890a58c25c5b",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "🇧🇬 Bulgaria, Sofia | [BL]",
+   "endpoint": {
+    "host": "168.113.128.70",
+    "port": 20105,
+    "resolved_ip": "168.113.128.70"
+   },
+   "geo": {
+    "country": "US",
+    "country_name": null,
+    "flag": "🇺🇸",
+    "asn": null,
+    "as_org": null,
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": false,
+    "ping_ms": 128,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T15:21:37Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 22,
+    "class": "fresh",
+    "seen_runs": 5,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "ripelever.net",
+    "security": "tls",
+    "flow": "xtls-rprx-vision",
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "2fd2d2203b61999f42d06a2d91c76cb4afedc695"
+   },
+   "recommended": true,
+   "raw_uri": "vless://9aff658c-1f80-4c82-9213-48ca26996142@168.113.128.70:20105?type=tcp&security=tls&flow=xtls-rprx-vision&sni=ripelever.net&fp=android#%F0%9F%87%A7%F0%9F%87%AC%20Bulgaria%2C%20Sofia%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇧🇬 Bulgaria, Sofia | [BL]",
+    "server": "168.113.128.70",
+    "server_port": 20105,
+    "type": "vless",
+    "uuid": "9aff658c-1f80-4c82-9213-48ca26996142",
+    "flow": "xtls-rprx-vision",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "ripelever.net",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    }
+   }
+  },
+  {
+   "id": "000f79b743eb",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "🇫🇷 France, Paris | [BL]",
+   "endpoint": {
+    "host": "194.76.155.139",
+    "port": 443,
+    "resolved_ip": "194.76.155.139"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 34534,
+    "as_org": "FBW NETWORKS SAS",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 88,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "697d1.veloradigital.xyz",
+    "security": "reality",
+    "flow": "xtls-rprx-vision",
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "2859f6ef81bb8fc9d2dc47828860f7afe8c47938"
+   },
+   "recommended": true,
+   "raw_uri": "vless://403bc4ee-2432-44a0-9997-99687d8a6907@194.76.155.139:443?encryption=none&flow=xtls-rprx-vision&pbk=smWXpvft1q96lC7HW-jOfdmvED1GWhhSvnLSXYMAOyE&security=reality&sid=2a89ede3&sni=697d1.veloradigital.xyz&type=tcp&fp=chrome#%F0%9F%87%AB%F0%9F%87%B7%20France%2C%20Paris%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇫🇷 France, Paris | [BL]",
+    "server": "194.76.155.139",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "403bc4ee-2432-44a0-9997-99687d8a6907",
+    "flow": "xtls-rprx-vision",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "697d1.veloradigital.xyz",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "smWXpvft1q96lC7HW-jOfdmvED1GWhhSvnLSXYMAOyE",
+      "short_id": "2a89ede3"
+     }
+    }
+   }
+  },
+  {
+   "id": "17ae52b5e5f3",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇮🇳 India, Navi Mumbai (Rabale) | [BL]",
+   "endpoint": {
+    "host": "mahdroo.ir",
+    "port": 443,
+    "resolved_ip": "104.21.48.79"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 23,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T06:45:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 6,
+    "class": "fresh",
+    "seen_runs": 2,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "soli-gghosin4-cell.dormhost.app",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "7b49da054810d4b24e74c00fa80f022165573750"
+   },
+   "recommended": true,
+   "raw_uri": "vless://bc4a4b66-c3fc-4f91-938e-4d93698c0d43@mahdroo.ir:443?path=%2Fjx-ge7wex6ki2ixyk&security=tls&encryption=none&insecure=0&host=soli-gghosin4-cell.dormhost.app&type=ws&allowInsecure=0&fp=chrome#%F0%9F%87%AE%F0%9F%87%B3%20India%2C%20Navi%20Mumbai%20%28Rabale%29%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇮🇳 India, Navi Mumbai (Rabale) | [BL]",
+    "server": "mahdroo.ir",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "bc4a4b66-c3fc-4f91-938e-4d93698c0d43",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/jx-ge7wex6ki2ixyk",
+     "headers": {
+      "Host": "soli-gghosin4-cell.dormhost.app"
+     }
+    }
+   }
+  },
+  {
+   "id": "897e3a280953",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇯🇵 Japan, Inzai (Otsuka) | [BL]",
+   "endpoint": {
+    "host": "104.19.164.155",
+    "port": 443,
+    "resolved_ip": "104.19.164.155"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 16,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "jp3.yohototo.top",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "e58b3c15783f766b27706b786d7b387dff122491"
+   },
+   "recommended": true,
+   "raw_uri": "vless://4e4f1f70-5e56-4a76-bb9d-db087f4690c4@104.19.164.155:443?security=tls&type=ws&path=%2Ftyxyws&host=jp3.yohototo.top&packetEncoding=xudp&sni=jp3.yohototo.top&fp=android#%F0%9F%87%AF%F0%9F%87%B5%20Japan%2C%20Inzai%20%28Otsuka%29%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇯🇵 Japan, Inzai (Otsuka) | [BL]",
+    "server": "104.19.164.155",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "4e4f1f70-5e56-4a76-bb9d-db087f4690c4",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "jp3.yohototo.top",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/tyxyws",
+     "headers": {
+      "Host": "jp3.yohototo.top"
+     }
+    }
+   }
+  },
+  {
+   "id": "dfee223a07c2",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇯🇵 Japan, Inzai (Otsuka) | 🌐 | [BL]",
+   "endpoint": {
+    "host": "104.19.12.94",
+    "port": 443,
+    "resolved_ip": "104.19.12.94"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 22,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-15T00:48:43Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 564,
+    "class": "long_lived",
+    "seen_runs": 3,
+    "stability": 0.024
+   },
+   "classification": {
+    "sni": "jp3.yohototo.top",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "791767542239922dd5155f5d1037fb7c91e24035"
+   },
+   "recommended": false,
+   "raw_uri": "vless://4e4f1f70-5e56-4a76-bb9d-db087f4690c4@104.19.12.94:443?host=jp3.yohototo.top&path=%2Ftyxyws&security=tls&sni=jp3.yohototo.top&type=ws&fp=android#%F0%9F%87%AF%F0%9F%87%B5%20Japan%2C%20Inzai%20%28Otsuka%29%20%7C%20%F0%9F%8C%90%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇯🇵 Japan, Inzai (Otsuka) | 🌐 | [BL]",
+    "server": "104.19.12.94",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "4e4f1f70-5e56-4a76-bb9d-db087f4690c4",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "jp3.yohototo.top",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/tyxyws",
+     "headers": {
+      "Host": "jp3.yohototo.top"
+     }
+    }
+   }
+  },
+  {
+   "id": "20a7824ec2e3",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇹🇼 Taiwan, Taoyuan | [BL]",
+   "endpoint": {
+    "host": "172.67.165.32",
+    "port": 8443,
+    "resolved_ip": "172.67.165.32"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 3,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-05T20:14:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 41,
+    "class": "short_lived",
+    "seen_runs": 7,
+    "stability": 0.875
+   },
+   "classification": {
+    "sni": "n04.jinggai.online",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "94e67937298ef235cdbb6937aea0b530f2bc09b3"
+   },
+   "recommended": false,
+   "raw_uri": "vless://91ad30e9-ab06-4b4c-9fb9-1c2aa97d8b3a@172.67.165.32:8443?host=n04.jinggai.online&path=%2Fnvl-n04-ws%2Fe0577fe8fd7c8823&security=tls&sni=n04.jinggai.online&type=ws&fp=edge#%F0%9F%87%B9%F0%9F%87%BC%20Taiwan%2C%20Taoyuan%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇹🇼 Taiwan, Taoyuan | [BL]",
+    "server": "172.67.165.32",
+    "server_port": 8443,
+    "type": "vless",
+    "uuid": "91ad30e9-ab06-4b4c-9fb9-1c2aa97d8b3a",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "n04.jinggai.online",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "edge"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/nvl-n04-ws/e0577fe8fd7c8823",
+     "headers": {
+      "Host": "n04.jinggai.online"
+     }
+    }
+   }
+  },
+  {
+   "id": "21f3629c065f",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇬🇧 United Kingdom, Slough | [BL]",
+   "endpoint": {
+    "host": "www.agahiya.ir",
+    "port": 443,
+    "resolved_ip": "172.67.143.66"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 5,
+    "stability": 0.833
+   },
+   "classification": {
+    "sni": "soliconf-gghosin4-cell.dormhost.app",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "f2c91d54aca858740aea928d981c3510722a7622"
+   },
+   "recommended": false,
+   "raw_uri": "vless://57e089a8-0cd1-48d0-b572-105c4804f6b8@www.agahiya.ir:443?path=%2Fjx-y8179aild6rsmj&security=tls&encryption=none&insecure=0&host=soliconf-gghosin4-cell.dormhost.app&type=ws&allowInsecure=0&fp=android#%F0%9F%87%AC%F0%9F%87%A7%20United%20Kingdom%2C%20Slough%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇬🇧 United Kingdom, Slough | [BL]",
+    "server": "www.agahiya.ir",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "57e089a8-0cd1-48d0-b572-105c4804f6b8",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/jx-y8179aild6rsmj",
+     "headers": {
+      "Host": "soliconf-gghosin4-cell.dormhost.app"
+     }
+    }
+   }
+  },
+  {
+   "id": "0c157e5c6f22",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇬🇧 United Kingdom, Slough | [BL]",
+   "endpoint": {
+    "host": "www.farahghanizadeh.ir",
+    "port": 443,
+    "resolved_ip": "104.21.89.210"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 5,
+    "stability": 0.833
+   },
+   "classification": {
+    "sni": "soliconf-gghosin4-cell.dormhost.app",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "7b5e52d32242ee76351d8eb463c97d55484cc849"
+   },
+   "recommended": false,
+   "raw_uri": "vless://57e089a8-0cd1-48d0-b572-105c4804f6b8@www.farahghanizadeh.ir:443?encryption=none&security=tls&type=ws&path=%2Fjx-y8179aild6rsmj&host=soliconf-gghosin4-cell.dormhost.app&fp=chrome#%F0%9F%87%AC%F0%9F%87%A7%20United%20Kingdom%2C%20Slough%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇬🇧 United Kingdom, Slough | [BL]",
+    "server": "www.farahghanizadeh.ir",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "57e089a8-0cd1-48d0-b572-105c4804f6b8",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/jx-y8179aild6rsmj",
+     "headers": {
+      "Host": "soliconf-gghosin4-cell.dormhost.app"
+     }
+    }
+   }
+  },
+  {
+   "id": "2824d52bd35e",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇬🇧 United Kingdom, Slough | [BL]",
+   "endpoint": {
+    "host": "www.sarzaminaryan.ir",
+    "port": 443,
+    "resolved_ip": "104.21.25.35"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 5,
+    "stability": 0.833
+   },
+   "classification": {
+    "sni": "soliconf-gghosin4-cell.dormhost.app",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "d0bef0c020a25003fc61cba3ca3986fca2d499d5"
+   },
+   "recommended": false,
+   "raw_uri": "vless://57e089a8-0cd1-48d0-b572-105c4804f6b8@www.sarzaminaryan.ir:443?path=%2Fjx-y8179aild6rsmj&security=tls&encryption=none&insecure=0&host=soliconf-gghosin4-cell.dormhost.app&type=ws&allowInsecure=0&fp=android#%F0%9F%87%AC%F0%9F%87%A7%20United%20Kingdom%2C%20Slough%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇬🇧 United Kingdom, Slough | [BL]",
+    "server": "www.sarzaminaryan.ir",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "57e089a8-0cd1-48d0-b572-105c4804f6b8",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/jx-y8179aild6rsmj",
+     "headers": {
+      "Host": "soliconf-gghosin4-cell.dormhost.app"
+     }
+    }
+   }
+  },
+  {
+   "id": "3e596751935c",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "🇺🇸 United States, Los Angeles (Downtown Los Angeles) | [BL]",
+   "endpoint": {
+    "host": "176.122.142.140",
+    "port": 443,
+    "resolved_ip": "176.122.142.140"
+   },
+   "geo": {
+    "country": "US",
+    "country_name": null,
+    "flag": "🇺🇸",
+    "asn": 25820,
+    "as_org": "IT7 Networks Inc",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 85,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "portal.citygrainla.com",
+    "security": "reality",
+    "flow": "xtls-rprx-vision",
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "b6d5006b68af594f0bbd3e4435d772a64a0ccf74"
+   },
+   "recommended": true,
+   "raw_uri": "vless://e60f4255-3cf2-483b-b6d3-3e302f431ef3@176.122.142.140:443?encryption=none&flow=xtls-rprx-vision&pbk=BlSccfT5tvDIOS7v9VaPd0ulUNhUdvlMjGiNzDNDUHE&security=reality&sid=051f20c2344a2dfd&sni=portal.citygrainla.com&type=tcp&fp=chrome#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20Los%20Angeles%20%28Downtown%20Los%20Angeles%29%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, Los Angeles (Downtown Los Angeles) | [BL]",
+    "server": "176.122.142.140",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "e60f4255-3cf2-483b-b6d3-3e302f431ef3",
+    "flow": "xtls-rprx-vision",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "portal.citygrainla.com",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "BlSccfT5tvDIOS7v9VaPd0ulUNhUdvlMjGiNzDNDUHE",
+      "short_id": "051f20c2344a2dfd"
+     }
+    }
+   }
+  },
+  {
+   "id": "782d4343c887",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "🇺🇸 United States, Los Angeles (Downtown Los Angeles) | [BL]",
+   "endpoint": {
+    "host": "176.122.188.184",
+    "port": 443,
+    "resolved_ip": "176.122.188.184"
+   },
+   "geo": {
+    "country": "US",
+    "country_name": null,
+    "flag": "🇺🇸",
+    "asn": 25820,
+    "as_org": "IT7 Networks Inc",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 85,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "portal.citygrainla.com",
+    "security": "reality",
+    "flow": "xtls-rprx-vision",
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "656f4748319d2714e1d0729c9690856b7726a9e5"
+   },
+   "recommended": true,
+   "raw_uri": "vless://e60f4255-3cf2-483b-b6d3-3e302f431ef3@176.122.188.184:443?encryption=none&flow=xtls-rprx-vision&pbk=BlSccfT5tvDIOS7v9VaPd0ulUNhUdvlMjGiNzDNDUHE&security=reality&sid=051f20c2344a2dfd&sni=portal.citygrainla.com&type=tcp&fp=chrome#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20Los%20Angeles%20%28Downtown%20Los%20Angeles%29%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, Los Angeles (Downtown Los Angeles) | [BL]",
+    "server": "176.122.188.184",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "e60f4255-3cf2-483b-b6d3-3e302f431ef3",
+    "flow": "xtls-rprx-vision",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "portal.citygrainla.com",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "BlSccfT5tvDIOS7v9VaPd0ulUNhUdvlMjGiNzDNDUHE",
+      "short_id": "051f20c2344a2dfd"
+     }
+    }
+   }
+  },
+  {
+   "id": "7967ef559ddc",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, North Bergen | [BL]",
+   "endpoint": {
+    "host": "172.67.199.126",
+    "port": 2053,
+    "resolved_ip": "172.67.199.126"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 15,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 5,
+    "stability": 0.833
+   },
+   "classification": {
+    "sni": "fast.145779.xyz",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "776dde6cd727687fa21f6c62332bd421ea4de525"
+   },
+   "recommended": false,
+   "raw_uri": "vless://c83f15bf-1817-4ec8-a19f-6393d226434c@172.67.199.126:2053?host=fast.145779.xyz&path=%2Fws-tesla&security=tls&sni=fast.145779.xyz&type=ws&fp=edge#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20North%20Bergen%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, North Bergen | [BL]",
+    "server": "172.67.199.126",
+    "server_port": 2053,
+    "type": "vless",
+    "uuid": "c83f15bf-1817-4ec8-a19f-6393d226434c",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "fast.145779.xyz",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "edge"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws-tesla",
+     "headers": {
+      "Host": "fast.145779.xyz"
+     }
+    }
+   }
+  },
+  {
+   "id": "029cae82cd55",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, North Bergen | [BL]",
+   "endpoint": {
+    "host": "fast.145779.xyz",
+    "port": 2053,
+    "resolved_ip": "172.67.199.126"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 6,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 5,
+    "stability": 0.833
+   },
+   "classification": {
+    "sni": "fast.145779.xyz",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "cb93d39e6510a4e09ae75436ae390f3061fd145c"
+   },
+   "recommended": false,
+   "raw_uri": "vless://c83f15bf-1817-4ec8-a19f-6393d226434c@fast.145779.xyz:2053?path=%2Fws-tesla&security=tls&sni=fast.145779.xyz&type=ws&fp=chrome#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20North%20Bergen%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, North Bergen | [BL]",
+    "server": "fast.145779.xyz",
+    "server_port": 2053,
+    "type": "vless",
+    "uuid": "c83f15bf-1817-4ec8-a19f-6393d226434c",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "fast.145779.xyz",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws-tesla"
+    }
+   }
+  },
+  {
+   "id": "64d9eaeb7828",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, North Bergen | [BL]",
+   "endpoint": {
+    "host": "104.21.58.37",
+    "port": 2053,
+    "resolved_ip": "104.21.58.37"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 15,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 5,
+    "stability": 0.833
+   },
+   "classification": {
+    "sni": "fast.145779.xyz",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "e42c1958a6c8baa271371cf6ddf6da3e039c9cd6"
+   },
+   "recommended": false,
+   "raw_uri": "vless://e3149c82-00f6-4227-b2c0-b78f1dd81279@104.21.58.37:2053?security=tls&sni=fast.145779.xyz&type=ws&host=fast.145779.xyz&path=%2Fws-tesla&fp=android#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20North%20Bergen%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, North Bergen | [BL]",
+    "server": "104.21.58.37",
+    "server_port": 2053,
+    "type": "vless",
+    "uuid": "e3149c82-00f6-4227-b2c0-b78f1dd81279",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "fast.145779.xyz",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws-tesla",
+     "headers": {
+      "Host": "fast.145779.xyz"
+     }
+    }
+   }
+  },
+  {
+   "id": "4b0728ab12f1",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, North Bergen | [BL]",
+   "endpoint": {
+    "host": "172.67.199.126",
+    "port": 2053,
+    "resolved_ip": "172.67.199.126"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 4,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 5,
+    "stability": 0.833
+   },
+   "classification": {
+    "sni": "fast.145779.xyz",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "98b8b3370823c0b19fbe01eadf4dce2589cb3da9"
+   },
+   "recommended": false,
+   "raw_uri": "vless://e3149c82-00f6-4227-b2c0-b78f1dd81279@172.67.199.126:2053?alpn=http%2F1.1&host=fast.145779.xyz&path=%2Fws-tesla&security=tls&sni=fast.145779.xyz&type=ws&fp=android#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20North%20Bergen%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, North Bergen | [BL]",
+    "server": "172.67.199.126",
+    "server_port": 2053,
+    "type": "vless",
+    "uuid": "e3149c82-00f6-4227-b2c0-b78f1dd81279",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "fast.145779.xyz",
+     "alpn": [
+      "http/1.1"
+     ],
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws-tesla",
+     "headers": {
+      "Host": "fast.145779.xyz"
+     }
+    }
+   }
+  },
+  {
+   "id": "e1be9dbdaf82",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇺🇸 United States, North Bergen | [BL]",
+   "endpoint": {
+    "host": "fast.145779.xyz",
+    "port": 2053,
+    "resolved_ip": "172.67.199.126"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 4,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T07:37:56Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 30,
+    "class": "short_lived",
+    "seen_runs": 5,
+    "stability": 0.833
+   },
+   "classification": {
+    "sni": "fast.145779.xyz",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "5691e005502a7477142017c1c576e31c9443e5d1"
+   },
+   "recommended": false,
+   "raw_uri": "vless://e3149c82-00f6-4227-b2c0-b78f1dd81279@fast.145779.xyz:2053?host=fast.145779.xyz&path=%2Fws-tesla&security=tls&sni=fast.145779.xyz&type=ws&fp=chrome#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%2C%20North%20Bergen%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States, North Bergen | [BL]",
+    "server": "fast.145779.xyz",
+    "server_port": 2053,
+    "type": "vless",
+    "uuid": "e3149c82-00f6-4227-b2c0-b78f1dd81279",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "fast.145779.xyz",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ws-tesla",
+     "headers": {
+      "Host": "fast.145779.xyz"
+     }
+    }
+   }
+  },
+  {
+   "id": "32334df3f9d5",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇨🇦 🇫🇮 | [BL]",
+   "endpoint": {
+    "host": "104.26.1.117",
+    "port": 443,
+    "resolved_ip": "104.26.1.117"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 4,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "erupencompanypdr.pages.dev",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "42de79342ee508cdaf0fba5c66ccd11b855a02fc"
+   },
+   "recommended": true,
+   "raw_uri": "vless://bdde0eb9-62c6-4d30-ac96-ab10d8eb7939@104.26.1.117:443?security=tls&sni=erupencompanypdr.pages.dev&type=ws&path=%2FISoOMY675XVPxHG4%3Fed%3D2560&host=erupencompanypdr.pages.dev&encryption=none&fp=android#%F0%9F%8C%90%20Anycast-IP%20%7C%20%F0%9F%87%A8%F0%9F%87%A6%20%F0%9F%87%AB%F0%9F%87%AE%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇨🇦 🇫🇮 | [BL]",
+    "server": "104.26.1.117",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "bdde0eb9-62c6-4d30-ac96-ab10d8eb7939",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "erupencompanypdr.pages.dev",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/ISoOMY675XVPxHG4?ed=2560",
+     "headers": {
+      "Host": "erupencompanypdr.pages.dev"
+     }
+    }
+   }
+  },
+  {
+   "id": "04f8cee72e96",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🌐 Anycast-IP | 🇨🇦 🇫🇮 🇺🇸 | [BL]",
+   "endpoint": {
+    "host": "broad.aicms.dpdns.org",
+    "port": 443,
+    "resolved_ip": "104.21.52.100"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 15,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "broad.aicms.dpdns.org",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "BLACK_VLESS_RUS.txt",
+    "imported": false,
+    "raw_uri_sha1": "6bae4bd51d46bfe539abda2d8801b7170ad8d780"
+   },
+   "recommended": true,
+   "raw_uri": "vless://55a95ae1-4ae8-4461-8484-457279821b40@broad.aicms.dpdns.org:443?encryption=none&security=tls&sni=broad.aicms.dpdns.org&type=ws&host=broad.aicms.dpdns.org&path=%2F%3Fed%3D2560&fp=android#%F0%9F%8C%90%20Anycast-IP%20%7C%20%F0%9F%87%A8%F0%9F%87%A6%20%F0%9F%87%AB%F0%9F%87%AE%20%F0%9F%87%BA%F0%9F%87%B8%20%7C%20%5BBL%5D",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇨🇦 🇫🇮 🇺🇸 | [BL]",
+    "server": "broad.aicms.dpdns.org",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "55a95ae1-4ae8-4461-8484-457279821b40",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "broad.aicms.dpdns.org",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "android"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/?ed=2560",
+     "headers": {
+      "Host": "broad.aicms.dpdns.org"
+     }
+    }
+   }
+  },
+  {
+   "id": "fef4ce0db641",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": ".𖥔 ݁ ˖ִ🛸༄˖°. | [*CIDR]",
+   "endpoint": {
+    "host": "lorettmay.top",
+    "port": 443,
+    "resolved_ip": "185.178.208.167"
+   },
+   "geo": {
+    "country": "GB",
+    "country_name": null,
+    "flag": "🇬🇧",
+    "asn": 57724,
+    "as_org": "DDOS-GUARD LTD",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 117,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-01T20:54:05Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 136,
+    "class": "long_lived",
+    "seen_runs": 20,
+    "stability": 0.87
+   },
+   "classification": {
+    "sni": "lorettmay.top",
+    "security": "tls",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/Vless-Reality-White-Lists-Rus-Mobile-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "a0307a607ce3d763b03471448cf85e8b459899a1"
+   },
+   "recommended": true,
+   "raw_uri": "vless://2232d904-8e6a-4202-8240-6efd8aec02e9@lorettmay.top:443?type=ws&security=tls&path=%2Fblog%2Fposts&host=lorettmay.top&sni=lorettmay.top&alpn=http%2F1.1&encryption=none&fp=chrome#.%F0%96%A5%94%20%DD%81%20%CB%96%D6%B4%F0%9F%9B%B8%E0%BC%84%CB%96%C2%B0.%20%7C%20%5B%2ACIDR%5D",
+   "outbound": {
+    "tag": ".𖥔 ݁ ˖ִ🛸༄˖°. | [*CIDR]",
+    "server": "lorettmay.top",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "2232d904-8e6a-4202-8240-6efd8aec02e9",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "lorettmay.top",
+     "alpn": [
+      "http/1.1"
+     ],
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/blog/posts",
+     "headers": {
+      "Host": "lorettmay.top"
+     }
+    }
+   }
+  },
+  {
+   "id": "e63befcbf566",
+   "protocol": "vless",
+   "transport": "grpc",
+   "tag": "🇩🇪 Germany [*CIDR]",
+   "endpoint": {
+    "host": "renderer-bridge-2-133.mirra.now",
+    "port": 443,
+    "resolved_ip": "129.101.103.69"
+   },
+   "geo": {
+    "country": "US",
+    "country_name": null,
+    "flag": "🇺🇸",
+    "asn": 11808,
+    "as_org": "University of Idaho",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 174,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T00:57:21Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 12,
+    "class": "fresh",
+    "seen_runs": 3,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "renderer-bridge-2-133.mirra.now",
+    "security": "tls",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/Vless-Reality-White-Lists-Rus-Mobile-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "4ee121eecca8f26978aa81bd16916733e12c4cad"
+   },
+   "recommended": true,
+   "raw_uri": "vless://27653b37-603c-4c90-b1f5-25c4d23f8932@renderer-bridge-2-133.mirra.now:443?type=grpc&security=tls&sni=renderer-bridge-2-133.mirra.now&path=VideoRenderer&serviceName=VideoRenderer&fp=firefox#%F0%9F%87%A9%F0%9F%87%AA%20Germany%20%5B%2ACIDR%5D",
+   "outbound": {
+    "tag": "🇩🇪 Germany [*CIDR]",
+    "server": "renderer-bridge-2-133.mirra.now",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "27653b37-603c-4c90-b1f5-25c4d23f8932",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "renderer-bridge-2-133.mirra.now",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "firefox"
+     }
+    },
+    "transport": {
+     "type": "grpc",
+     "service_name": "VideoRenderer"
+    }
+   }
+  },
+  {
+   "id": "f921dc983815",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "🇨🇭 Switzerland [*CIDR]",
+   "endpoint": {
+    "host": "87.242.87.165",
+    "port": 8443,
+    "resolved_ip": "87.242.87.165"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 208677,
+    "as_org": "\"Cloud Technologies\" LLC trading as Cloud.ru",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 145,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "codifyr.ru",
+    "security": "reality",
+    "flow": "xtls-rprx-vision",
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/Vless-Reality-White-Lists-Rus-Mobile-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "37a170f0dde8795d448108b03878a66e5606de06"
+   },
+   "recommended": true,
+   "raw_uri": "vless://fa8c52f8-d800-4ddd-bdc3-4f8a24b073c6@87.242.87.165:8443?encryption=none&flow=xtls-rprx-vision&type=tcp&security=reality&sni=codifyr.ru&pbk=WCGVWrqI3t-c5ZIbUEmwjN3wiFFT7xV09PIio-OQGHU&sid=d16860c57700c886&fp=firefox#%F0%9F%87%A8%F0%9F%87%AD%20Switzerland%20%5B%2ACIDR%5D",
+   "outbound": {
+    "tag": "🇨🇭 Switzerland [*CIDR]",
+    "server": "87.242.87.165",
+    "server_port": 8443,
+    "type": "vless",
+    "uuid": "fa8c52f8-d800-4ddd-bdc3-4f8a24b073c6",
+    "flow": "xtls-rprx-vision",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "codifyr.ru",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "firefox"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "WCGVWrqI3t-c5ZIbUEmwjN3wiFFT7xV09PIio-OQGHU",
+      "short_id": "d16860c57700c886"
+     }
+    }
+   }
+  },
+  {
+   "id": "16dc3dbc1ed7",
+   "protocol": "vless",
+   "transport": "grpc",
+   "tag": "🇨🇭 Switzerland | [*CIDR]",
+   "endpoint": {
+    "host": "87.242.87.165",
+    "port": 8445,
+    "resolved_ip": "87.242.87.165"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 208677,
+    "as_org": "\"Cloud Technologies\" LLC trading as Cloud.ru",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 140,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "codifyr.ru",
+    "security": "reality",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/Vless-Reality-White-Lists-Rus-Mobile-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "1a403b95ecfd4c9546d4b7ca63872707a18bf512"
+   },
+   "recommended": true,
+   "raw_uri": "vless://fa8c52f8-d800-4ddd-bdc3-4f8a24b073c6@87.242.87.165:8445?encryption=none&type=grpc&security=reality&sni=codifyr.ru&pbk=WCGVWrqI3t-c5ZIbUEmwjN3wiFFT7xV09PIio-OQGHU&sid=d16860c57700c886&serviceName=grpc-reality&fp=edge#%F0%9F%87%A8%F0%9F%87%AD%20Switzerland%20%7C%20%5B%2ACIDR%5D",
+   "outbound": {
+    "tag": "🇨🇭 Switzerland | [*CIDR]",
+    "server": "87.242.87.165",
+    "server_port": 8445,
+    "type": "vless",
+    "uuid": "fa8c52f8-d800-4ddd-bdc3-4f8a24b073c6",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "codifyr.ru",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "edge"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "WCGVWrqI3t-c5ZIbUEmwjN3wiFFT7xV09PIio-OQGHU",
+      "short_id": "d16860c57700c886"
+     }
+    },
+    "transport": {
+     "type": "grpc",
+     "service_name": "grpc-reality"
+    }
+   }
+  },
+  {
+   "id": "2dda99da79bc",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇳🇱 The Netherlands | [*CIDR] VK",
+   "endpoint": {
+    "host": "185.86.147.175",
+    "port": 443,
+    "resolved_ip": "185.86.147.175"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 47764,
+    "as_org": "LLC VK",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": false,
+    "ping_ms": 137,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T21:01:34Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 16,
+    "class": "fresh",
+    "seen_runs": 4,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "bhjolq0d0l.flowersgood.top",
+    "security": "tls",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/Vless-Reality-White-Lists-Rus-Mobile-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "14fa5270043b396adf4731dce9f81917c2768fbf"
+   },
+   "recommended": true,
+   "raw_uri": "vless://7955bf18-35c4-412d-aabd-c0b36c793063@185.86.147.175:443?security=tls&sni=bhjolq0d0l.flowersgood.top&type=ws&headerType=none&host=bhjolq0d0l.flowersgood.top&path=%2Fservice%2Ftelemetry%2F045d381f1166%2F&fp=chrome#%F0%9F%87%B3%F0%9F%87%B1%20The%20Netherlands%20%7C%20%5B%2ACIDR%5D%20VK",
+   "outbound": {
+    "tag": "🇳🇱 The Netherlands | [*CIDR] VK",
+    "server": "185.86.147.175",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "7955bf18-35c4-412d-aabd-c0b36c793063",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "bhjolq0d0l.flowersgood.top",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/service/telemetry/045d381f1166/",
+     "headers": {
+      "Host": "bhjolq0d0l.flowersgood.top"
+     }
+    }
+   }
+  },
+  {
+   "id": "ff7cabd00a9b",
+   "protocol": "vless",
+   "transport": "ws",
+   "tag": "🇳🇱 The Netherlands | [*CIDR] VK",
+   "endpoint": {
+    "host": "bhjolq0d0l.flowersgood.top",
+    "port": 443,
+    "resolved_ip": "185.86.147.175"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 47764,
+    "as_org": "LLC VK",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": false,
+    "ping_ms": 183,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T06:45:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 6,
+    "class": "fresh",
+    "seen_runs": 2,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "bhjolq0d0l.flowersgood.top",
+    "security": "tls",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/Vless-Reality-White-Lists-Rus-Mobile-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "09a7b6aea69b1ebed4e103cccc3fd955e1f92b92"
+   },
+   "recommended": true,
+   "raw_uri": "vless://7955bf18-35c4-412d-aabd-c0b36c793063@bhjolq0d0l.flowersgood.top:443?type=ws&encryption=none&host=bhjolq0d0l.flowersgood.top&path=%2Fservice%2Ftelemetry%2F045d381f1166%2F&security=tls&sni=bhjolq0d0l.flowersgood.top&alpn=http%2F1.1&fp=chrome#%F0%9F%87%B3%F0%9F%87%B1%20The%20Netherlands%20%7C%20%5B%2ACIDR%5D%20VK",
+   "outbound": {
+    "tag": "🇳🇱 The Netherlands | [*CIDR] VK",
+    "server": "bhjolq0d0l.flowersgood.top",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "7955bf18-35c4-412d-aabd-c0b36c793063",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "bhjolq0d0l.flowersgood.top",
+     "alpn": [
+      "http/1.1"
+     ],
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/service/telemetry/045d381f1166/",
+     "headers": {
+      "Host": "bhjolq0d0l.flowersgood.top"
+     }
+    }
+   }
+  },
+  {
+   "id": "0f19014e8014",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "🇺🇸 United States | 🌐 | [*CIDR]",
+   "endpoint": {
+    "host": "45.143.94.91",
+    "port": 8443,
+    "resolved_ip": "45.143.94.91"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 214822,
+    "as_org": "MT FINANCE LLC",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 116,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T00:57:21Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 12,
+    "class": "fresh",
+    "seen_runs": 2,
+    "stability": 0.667
+   },
+   "classification": {
+    "sni": "us1.cloudvienta.com",
+    "security": "reality",
+    "flow": "xtls-rprx-vision",
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/Vless-Reality-White-Lists-Rus-Mobile-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "cf8ad4c6a05816c8009716a259cb25eddc4e039a"
+   },
+   "recommended": true,
+   "raw_uri": "vless://3837e7a5-d40e-4b85-8700-5f9725a5a2cb@45.143.94.91:8443/?type=tcp&encryption=none&flow=xtls-rprx-vision&sni=us1.cloudvienta.com&security=reality&pbk=3Kgy_0tHtOzEn9_mEylNsBVlAHNngT6S4AuYy5wEOSU&sid=0c37b64d1935ebc1&fp=chrome#%F0%9F%87%BA%F0%9F%87%B8%20United%20States%20%7C%20%F0%9F%8C%90%20%7C%20%5B%2ACIDR%5D",
+   "outbound": {
+    "tag": "🇺🇸 United States | 🌐 | [*CIDR]",
+    "server": "45.143.94.91",
+    "server_port": 8443,
+    "type": "vless",
+    "uuid": "3837e7a5-d40e-4b85-8700-5f9725a5a2cb",
+    "flow": "xtls-rprx-vision",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "us1.cloudvienta.com",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "3Kgy_0tHtOzEn9_mEylNsBVlAHNngT6S4AuYy5wEOSU",
+      "short_id": "0c37b64d1935ebc1"
+     }
+    }
+   }
+  },
+  {
+   "id": "8e1c1e196a51",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "🌐 Anycast-IP | 🇪🇪 🇷🇺 | [*CIDR] VK",
+   "endpoint": {
+    "host": "185.86.145.112",
+    "port": 8445,
+    "resolved_ip": "185.86.145.112"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 47764,
+    "as_org": "LLC VK",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 120,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "passport.yandex.ru",
+    "security": "reality",
+    "flow": "xtls-rprx-vision",
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/WHITE-CIDR-RU-all-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "27432c47dac6aa298229ed4c953513bc58ff29a4"
+   },
+   "recommended": true,
+   "raw_uri": "vless://cd138479-c87a-4d4c-b6ea-4beeb6ef2b47@185.86.145.112:8445?encryption=none&flow=xtls-rprx-vision&pbk=l06r0clkHjHk7HRGpkDBJwZ1JJscSqfwHUQOrV3v3hQ&security=reality&sni=passport.yandex.ru&spx=%2F&type=raw&fp=chrome#%F0%9F%8C%90%20Anycast-IP%20%7C%20%F0%9F%87%AA%F0%9F%87%AA%20%F0%9F%87%B7%F0%9F%87%BA%20%7C%20%5B%2ACIDR%5D%20VK",
+   "outbound": {
+    "tag": "🌐 Anycast-IP | 🇪🇪 🇷🇺 | [*CIDR] VK",
+    "server": "185.86.145.112",
+    "server_port": 8445,
+    "type": "vless",
+    "uuid": "cd138479-c87a-4d4c-b6ea-4beeb6ef2b47",
+    "flow": "xtls-rprx-vision",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "passport.yandex.ru",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "l06r0clkHjHk7HRGpkDBJwZ1JJscSqfwHUQOrV3v3hQ"
+     }
+    }
+   }
+  },
+  {
+   "id": "603b09c4f26a",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "🇳🇱 The Netherlands | [SNI-RU] golos.mail.ru",
+   "endpoint": {
+    "host": "novonl.subv.ru",
+    "port": 443,
+    "resolved_ip": "89.105.218.133"
+   },
+   "geo": {
+    "country": "NL",
+    "country_name": null,
+    "flag": "🇳🇱",
+    "asn": 24875,
+    "as_org": "NovoServe B.V.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 210,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-06T21:01:34Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 16,
+    "class": "fresh",
+    "seen_runs": 4,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "golos.mail.ru",
+    "security": "reality",
+    "flow": "xtls-rprx-vision",
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Base64/PROXIES_ONLY/WHITE-SNI-RU-all-base64.txt",
+    "imported": false,
+    "raw_uri_sha1": "1f119c9e6816f540d93cae8ccdb3d1bf12e90f0a"
+   },
+   "recommended": true,
+   "raw_uri": "vless://90157e25-cee1-4217-921e-91f300bc1a24@novonl.subv.ru:443?type=tcp&security=reality&sni=golos.mail.ru&pbk=1vSZjvhZO01oAEH3b7eebR1qF5dLU1Dq2E7xu8pwGSs&sid=428ef87fd47a3a32&spx=%2F&encryption=none&flow=xtls-rprx-vision&fp=chrome#%F0%9F%87%B3%F0%9F%87%B1%20The%20Netherlands%20%7C%20%5BSNI-RU%5D%20golos.mail.ru",
+   "outbound": {
+    "tag": "🇳🇱 The Netherlands | [SNI-RU] golos.mail.ru",
+    "server": "novonl.subv.ru",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "90157e25-cee1-4217-921e-91f300bc1a24",
+    "flow": "xtls-rprx-vision",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "golos.mail.ru",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "1vSZjvhZO01oAEH3b7eebR1qF5dLU1Dq2E7xu8pwGSs",
+      "short_id": "428ef87fd47a3a32"
+     }
+    }
+   }
+  },
+  {
+   "id": "0afb9d0bc2b4",
+   "protocol": "vmess",
+   "transport": "ws",
+   "tag": "Igareck Node 032",
+   "endpoint": {
+    "host": "or3.sfacg.uk",
+    "port": 2083,
+    "resolved_ip": "104.21.50.177"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 32,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-09T09:34:17Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 700,
+    "class": "long_lived",
+    "seen_runs": 10,
+    "stability": 0.065
+   },
+   "classification": {
+    "sni": "cdn.sfacg.uk",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Clash/GLOBAL/BLACK_SS+All_RUS_clash_global.yaml",
+    "imported": false,
+    "raw_uri_sha1": "fe4201fcd036b9800e7ecc9f0989d0d4b530b064"
+   },
+   "recommended": false,
+   "raw_uri": "clash://vmess/or3.sfacg.uk:2083",
+   "outbound": {
+    "tag": "Igareck Node 032",
+    "server": "or3.sfacg.uk",
+    "server_port": 2083,
+    "type": "vmess",
+    "uuid": "ac251237-576f-40c8-a543-554960c958b1",
+    "alter_id": 0,
+    "security": "auto",
+    "tls": {
+     "enabled": true,
+     "server_name": "cdn.sfacg.uk"
+    },
+    "transport": {
+     "type": "ws",
+     "path": "/or3",
+     "headers": {
+      "Host": "or3.sfacg.uk"
+     }
+    }
+   }
+  },
+  {
+   "id": "7363acbc9f7f",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "Igareck Node 005 | 🇨🇦 Canada | 🌐 | [BL]",
+   "endpoint": {
+    "host": "5.53.124.191",
+    "port": 8008,
+    "resolved_ip": "5.53.124.191"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 49505,
+    "as_org": "JSC Selectel",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": false,
+    "ping_ms": 116,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": null,
+    "security": "none",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Clash/GLOBAL/BLACK_VLESS_RUS_clash_global.yaml",
+    "imported": false,
+    "raw_uri_sha1": "7114505a1d28f0afa2e2b90ec3538793f730b2a2"
+   },
+   "recommended": true,
+   "raw_uri": "clash://vless/5.53.124.191:8008",
+   "outbound": {
+    "tag": "Igareck Node 005 | 🇨🇦 Canada | 🌐 | [BL]",
+    "server": "5.53.124.191",
+    "server_port": 8008,
+    "type": "vless",
+    "uuid": "b48e1596-e835-4547-bdae-31daadf9ea17",
+    "packet_encoding": "xudp"
+   }
+  },
+  {
+   "id": "d3f061a8b467",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "Igareck Node 026 | 🇳🇱 The Netherlands， Dedemsvaart | [BL]",
+   "endpoint": {
+    "host": "188.114.98.0",
+    "port": 443,
+    "resolved_ip": "188.114.98.0"
+   },
+   "geo": {
+    "country": "CA",
+    "country_name": null,
+    "flag": "🇨🇦",
+    "asn": 13335,
+    "as_org": "Cloudflare, Inc.",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 29,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T06:45:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 6,
+    "class": "fresh",
+    "seen_runs": 2,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "nl29.dr-ping.ir",
+    "security": "tls",
+    "flow": null,
+    "cdn": true,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Clash/GLOBAL/BLACK_VLESS_RUS_clash_global.yaml",
+    "imported": false,
+    "raw_uri_sha1": "40fd58baf1b931ac01c2204cbdd053f053d2763a"
+   },
+   "recommended": true,
+   "raw_uri": "clash://vless/188.114.98.0:443",
+   "outbound": {
+    "tag": "Igareck Node 026 | 🇳🇱 The Netherlands， Dedemsvaart | [BL]",
+    "server": "188.114.98.0",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "64c5f924-1c24-44a5-acff-2e3ebcd2f807",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "nl29.dr-ping.ir",
+     "alpn": [
+      "h3",
+      "h2",
+      "http/1.1"
+     ],
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    }
+   }
+  },
+  {
+   "id": "1f7a46202e4b",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "Igareck Node 005 | .𖥔 ݁ ˖ִ🛸༄˖°. | [*CIDR]",
+   "endpoint": {
+    "host": "185.178.208.140",
+    "port": 443,
+    "resolved_ip": "185.178.208.140"
+   },
+   "geo": {
+    "country": "GB",
+    "country_name": null,
+    "flag": "🇬🇧",
+    "asn": 57724,
+    "as_org": "DDOS-GUARD LTD",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 83,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-10-26T05:13:26Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 296,
+    "class": "long_lived",
+    "seen_runs": 55,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "static.bakarova-top.ru",
+    "security": "tls",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Clash/GLOBAL/Vless-Reality-White-Lists-Rus-Mobile-clash-global.yaml",
+    "imported": false,
+    "raw_uri_sha1": "47567e616bc568def9eda5db0a18d4e5572b4acd"
+   },
+   "recommended": true,
+   "raw_uri": "clash://vless/185.178.208.140:443",
+   "outbound": {
+    "tag": "Igareck Node 005 | .𖥔 ݁ ˖ִ🛸༄˖°. | [*CIDR]",
+    "server": "185.178.208.140",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "ea277838-a188-44f1-a2e8-94aa110c4f27",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "static.bakarova-top.ru",
+     "alpn": [
+      "h2"
+     ],
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    }
+   }
+  },
+  {
+   "id": "57fed0e70ff9",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "Igareck Node 056 | 🇨🇭 Switzerland | [*CIDR]",
+   "endpoint": {
+    "host": "87.242.87.165",
+    "port": 443,
+    "resolved_ip": "87.242.87.165"
+   },
+   "geo": {
+    "country": "RU",
+    "country_name": null,
+    "flag": "🇷🇺",
+    "asn": 208677,
+    "as_org": "\"Cloud Technologies\" LLC trading as Cloud.ru",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 144,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-07T13:38:47Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 0,
+    "class": "fresh",
+    "seen_runs": 1,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "codifyr.ru",
+    "security": "reality",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Clash/GLOBAL/Vless-Reality-White-Lists-Rus-Mobile-clash-global.yaml",
+    "imported": false,
+    "raw_uri_sha1": "c71b4156e951d08b40f595acf82edccc21211018"
+   },
+   "recommended": true,
+   "raw_uri": "clash://vless/87.242.87.165:443",
+   "outbound": {
+    "tag": "Igareck Node 056 | 🇨🇭 Switzerland | [*CIDR]",
+    "server": "87.242.87.165",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "fa8c52f8-d800-4ddd-bdc3-4f8a24b073c6",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "codifyr.ru",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "firefox"
+     },
+     "reality": {
+      "enabled": true,
+      "public_key": "WCGVWrqI3t-c5ZIbUEmwjN3wiFFT7xV09PIio-OQGHU",
+      "short_id": "d16860c57700c886"
+     }
+    }
+   }
+  },
+  {
+   "id": "579160bf6551",
+   "protocol": "vless",
+   "transport": "tcp",
+   "tag": "Igareck Node 068 | 🇺🇸 United States | [*CIDR]",
+   "endpoint": {
+    "host": "185.178.208.140",
+    "port": 443,
+    "resolved_ip": "185.178.208.140"
+   },
+   "geo": {
+    "country": "GB",
+    "country_name": null,
+    "flag": "🇬🇧",
+    "asn": 57724,
+    "as_org": "DDOS-GUARD LTD",
+    "city": null
+   },
+   "health": {
+    "tcp_ok": true,
+    "tls_ok": true,
+    "ping_ms": 82,
+    "checked_at": "2026-11-07T13:38:47Z"
+   },
+   "lifetime": {
+    "first_seen": "2026-11-02T15:56:49Z",
+    "last_seen": "2026-11-07T13:38:47Z",
+    "age_hours": 117,
+    "class": "long_lived",
+    "seen_runs": 20,
+    "stability": 1.0
+   },
+   "classification": {
+    "sni": "api.bakarova-top.ru",
+    "security": "tls",
+    "flow": null,
+    "cdn": false,
+    "ipv6": false,
+    "udp": false
+   },
+   "provenance": {
+    "source": "github:igareck/vpn-configs-for-russia",
+    "source_file": "Export/Clash/GLOBAL/Vless-Reality-White-Lists-Rus-Mobile-clash-global.yaml",
+    "imported": false,
+    "raw_uri_sha1": "47567e616bc568def9eda5db0a18d4e5572b4acd"
+   },
+   "recommended": true,
+   "raw_uri": "clash://vless/185.178.208.140:443",
+   "outbound": {
+    "tag": "Igareck Node 068 | 🇺🇸 United States | [*CIDR]",
+    "server": "185.178.208.140",
+    "server_port": 443,
+    "type": "vless",
+    "uuid": "ea277838-a188-44f1-a2e8-94aa110c4f27",
+    "packet_encoding": "xudp",
+    "tls": {
+     "enabled": true,
+     "server_name": "api.bakarova-top.ru",
+     "utls": {
+      "enabled": true,
+      "fingerprint": "chrome"
+     }
+    }
+   }
+  }
+ ]
+}
